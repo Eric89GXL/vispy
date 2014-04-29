@@ -100,7 +100,7 @@ capability = dict(  # things that can be set by the backend
 # ------------------------------------------------------- set_configuration ---
 
 def _set_config(c):
-    """Set gl configuration for GLFW """
+    """Set gl configuration for GTK"""
     mode = gtk.gdkgl.MODE_RGBA
     mode |= gtk.gdkgl.MODE_DOUBLE if c['double_buffer'] else 0
     mode |= gtk.gdkgl.MODE_MULTISAMPLE if c['samples'] else 0
@@ -123,7 +123,7 @@ class ApplicationBackend(BaseApplicationBackend):
         BaseApplicationBackend.__init__(self)
 
     def _vispy_get_backend_name(self):
-        return 'Glfw'
+        return 'GTK'
 
     def _vispy_process_events(self):
         gtk.gdk.threads_enter()  # enter/leave prevents IPython -gthread hang
@@ -143,9 +143,6 @@ class ApplicationBackend(BaseApplicationBackend):
 
     def _vispy_quit(self):
         # Close windows
-        #wins = _get_gtk_windows()
-        #for win in wins:
-        #    win._vispy_close()
         if gtk.vv_do_quit:  # We started the mainloop, so we better kill it.
             gtk.main_quit()
 
@@ -163,7 +160,6 @@ class CanvasBackend(BaseCanvasBackend, _DrawingArea):
         BaseCanvasBackend.__init__(self, capability, SharedContext)
         title, size, position, show, vsync, resize, dec, fs, context = \
             self._process_backend_kwargs(kwargs)
-        # Init GLFW, add window hints, and create window
         assert isinstance(context, dict)
         glconfig = _set_config(context)
 
@@ -185,7 +181,6 @@ class CanvasBackend(BaseCanvasBackend, _DrawingArea):
         _DrawingArea.__init__(self, glconfig)
         self.set_property('can-focus', True)
         win.add(self)
-        self._mod = list()
 
         # Register callbacks XXX
         self.connect_after('realize', self._on_initialize)
@@ -193,8 +188,17 @@ class CanvasBackend(BaseCanvasBackend, _DrawingArea):
         self.connect('expose-event', self._on_draw)
         self.connect('destroy', self._on_close)
 
-        self._vispy_canvas_ = None
+        self.connect("motion-notify-event", self._on_mouse_move)
+        self.connect("key-press-event", self._on_key_press)
+        self.connect("key-release-event", self._on_key_release)
+        self.connect("button-press-event", self._on_button_press)
+        self.connect("button-release-event", self._on_button_release)
+        self.connect("scroll-event", self._on_mouse_scroll)
+ 
         self._gl_drawable = None
+        self._vispy_canvas = None
+        if show:
+            self._vispy_show()
 
     @property
     def _vispy_context(self):
@@ -203,51 +207,28 @@ class CanvasBackend(BaseCanvasBackend, _DrawingArea):
 
     ####################################
     # Deal with events we get from vispy
-    @property
-    def _vispy_canvas(self):
-        """ The parent canvas/window """
-        return self._vispy_canvas_
-
-    @_vispy_canvas.setter
-    def _vispy_canvas(self, vc):
-        # Init events when the property is set by Canvas
-        self._vispy_canvas_ = vc
-        return self._vispy_canvas
-
     def _vispy_warmup(self):
         pass
 
     def _vispy_set_current(self):
-        # Make this the current context
         if self._gl_drawable is None:
             return
         self._gl_drawable.gl_begin(self.get_gl_context())
 
-    def _vispy_end_current(self):
-        # Make this the current context
-        if self._gl_drawable is None:
-            return
-        self._gl_drawable.gl_end()
-
     def _vispy_swap_buffers(self):
-        # Swap front and back buffer
         self._vispy_set_current()
         self._gl_drawable.swap_buffers()
 
     def _vispy_set_title(self, title):
-        # Set the window title. Has no effect for widgets
         self._win.set_title(title)
 
     def _vispy_set_size(self, w, h):
-        # Set size of the widget or window
         self._win.resize(w, h)
 
     def _vispy_set_position(self, x, y):
-        # Set position of the widget or window. May have no effect for widgets
         self._win.move(self, x, y)
 
     def _vispy_set_visible(self, visible):
-        # Show or hide the window or widget
         if visible:
             self.show()
             self._win.show()
@@ -259,22 +240,19 @@ class CanvasBackend(BaseCanvasBackend, _DrawingArea):
         self.window.process_updates(False)
 
     def _vispy_close(self):
-        # Force the window or widget to shut down
         self.destroy()
 
-    def _get_allocation(self):
-        self._vispy_set_current()
-        x, y, w, h = self.get_allocation()
-        return x, y, w, h
-
     def _vispy_get_size(self):
-        return self._get_allocation()[2:]
+        return self.allocation[2:]
 
     def _vispy_get_position(self):
-        return self._get_allocation()[:2]
+        return self.allocation[:2]
 
     #########################################
     # Notify vispy of events triggered by GTK
+
+    # http://pygtk.org/pygtk2tutorial/sec-EventHandling.html
+    # http://pygtk.org/pygtk2reference/class-gtkwidget.html
 
     def _on_initialize(self, _id):
         self._gl_drawable = self.get_gl_drawable()
@@ -287,8 +265,7 @@ class CanvasBackend(BaseCanvasBackend, _DrawingArea):
     def _on_resize(self, _id, event):
         if self._vispy_canvas is None:
             return
-        x, y, w, h = self._get_allocation()
-        self._vispy_canvas.events.resize(size=(w, h))
+        self._vispy_canvas.events.resize(size=self.allocation[2:])
 
     def _on_draw(self, _id, event):
         if self._vispy_canvas is None:
@@ -301,24 +278,43 @@ class CanvasBackend(BaseCanvasBackend, _DrawingArea):
             return
         self._vispy_canvas.events.close()
 
+    def _on_mouse_move(self, event):
+        print('mouse move %s' % event)
+
+    def _on_key_press(self, event):
+        print('key press %s' % event)
+
+    def _on_key_release(self, event):
+        print('key release %s' % event)
+
+    def _on_button_press(self, event):
+        print('button press %s' % event)
+
+    def _on_button_release(self, event):
+        print('button release %s' % event)
+
+    def _on_mouse_scroll(self, event):
+        print('mouse scroll %s' % event)
+
 
 # ------------------------------------------------------------------- timer ---
 
 class TimerBackend(BaseTimerBackend):
 
-    def __init__(self, vispy_timer):
-        BaseTimerBackend.__init__(self, vispy_timer)
-        #vispy_timer._app._backend._add_timer(self)
-        self._vispy_stop()
+    # http://pygtk.org/pygtk2reference/gobject-functions.html
+    def __init__(self, *args, **kwargs):
+        BaseTimerBackend.__init__(self, *args, **kwargs)
+        self._tag = None
 
     def _vispy_start(self, interval):
-        self._interval = interval
-        self._next_time = time() + self._interval
+        interval = max(int(1000 * self._vispy_timer._interval), 1)  # ms
+        self._tag = gobject.timeout_add_seconds(interval,
+                                                self._vispy_timer.timeout)
 
     def _vispy_stop(self):
-        self._next_time = float('inf')
+        if self._tag is not None:
+            assert gobject.source_remove(self._tag):
+            self._tag = None
 
-    def _tick(self):
-        if time() >= self._next_time:
-            self._vispy_timer._timeout()
-            self._next_time = time() + self._interval
+    def _vispy_get_native_timer(self):
+        return gobject

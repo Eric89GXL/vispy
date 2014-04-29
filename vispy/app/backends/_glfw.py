@@ -123,7 +123,7 @@ capability = dict(  # things that can be set by the backend
 # ------------------------------------------------------- set_configuration ---
 
 def _set_config(c):
-    """Set gl configuration for GLFW """
+    """Set gl configuration for GLFW"""
     glfw.glfwWindowHint(glfw.GLFW_RED_BITS, c['red_size'])
     glfw.glfwWindowHint(glfw.GLFW_GREEN_BITS, c['green_size'])
     glfw.glfwWindowHint(glfw.GLFW_BLUE_BITS, c['blue_size'])
