@@ -13,6 +13,7 @@ import numpy as np
 from vispy import gloo
 from vispy import app
 from vispy.util.transforms import perspective, translate, rotate
+app.use('gtk')
 
 # Create vertices
 n, p = 100, 150

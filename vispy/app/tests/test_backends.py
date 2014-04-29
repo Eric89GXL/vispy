@@ -148,6 +148,14 @@ class Test_SDL2Backend(BaseTestmodule):
         BaseTestmodule.__init__(self, _sdl2)
 
 
+class Test_GTKBackend(BaseTestmodule):
+
+    @requires_application('gtk')
+    def __init__(self):
+        from vispy.app.backends import _gtk
+        BaseTestmodule.__init__(self, _gtk)
+
+
 class Test_GlutBackend(BaseTestmodule):
 
     @requires_application('glut')

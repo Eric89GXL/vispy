@@ -95,6 +95,8 @@ def _test_callbacks(canvas):
         backend._on_event(event)
         event.type = 769  # SDL_KEYUP
         backend._on_event(event)
+    elif 'gtk' in backend_name.lower():
+        pass  # XXX how difficult is this?
     elif 'glut' in backend_name.lower():
         backend.on_mouse_action(0, 0, 0, 0)
         backend.on_mouse_action(0, 1, 0, 0)
@@ -338,6 +340,16 @@ def test_sdl2():
     _test_run(backend)
     _test_capability(backend)
     #_test_fs(backend)  # blanks entire screen, which isn't very nice
+
+
+@requires_application('gtk')
+def test_gtk():
+    """Test GTK application"""
+    backend = 'gtk'
+    _test_application(backend)
+    _test_run(backend)
+    _test_capability(backend)
+    _test_fs(backend)
 
 
 @requires_application('glut')

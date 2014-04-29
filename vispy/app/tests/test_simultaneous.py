@@ -214,6 +214,13 @@ def test_sdl2():
     _test_multiple_canvas_same_backend('sdl2')
 
 
+@requires_application('gtk')
+def test_gtk():
+    """Test multiple GTK windows"""
+    _test_multiple_canvases('gtk')
+    _test_multiple_canvas_same_backend('gtk')
+
+
 @requires_application('glut')
 def test_glut():
     """Test multiple Glut windows"""

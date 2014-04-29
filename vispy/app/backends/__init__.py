@@ -19,6 +19,7 @@ BACKENDS = [
     ('Pyglet', '_pyglet', 'pyglet'),
     ('Glfw', '_glfw', 'vispy.app.backends._libglfw'),
     ('SDL2', '_sdl2', 'sdl2'),
+    ('GTK', '_gtk', 'gtk'),
     ('Glut', '_glut', 'OpenGL.GLUT'),
 ]
 
