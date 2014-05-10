@@ -61,5 +61,8 @@ glfw: clean
 sdl2: clean
 	python make test sdl2
 
+kivy: clean
+	python make test kivy
+
 glut: clean
 	python make test glut

@@ -19,6 +19,7 @@ BACKENDS = [
     ('Pyglet', '_pyglet', 'pyglet'),
     ('Glfw', '_glfw', 'vispy.app.backends._libglfw'),
     ('SDL2', '_sdl2', 'sdl2'),
+    ('Kivy', '_kivy', 'kivy'),
     ('Glut', '_glut', 'OpenGL.GLUT'),
     ('_test', '_test', 'vispy.app.backends._test'),  # add one that will fail
 ]
