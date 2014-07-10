@@ -13,6 +13,7 @@ class Canvas(app.Canvas):
     def on_draw(self, event):
         gloo.clear(color=(1., 1., 1., 1.))
         self.text.draw()
+        self.update()
 
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.size)

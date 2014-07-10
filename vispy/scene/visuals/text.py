@@ -9,11 +9,11 @@
 
 import numpy as np
 
-from ....gloo import (TextureAtlas, set_state, get_parameter,
-                      Program, IndexBuffer, VertexBuffer)
-from ....ext.six import string_types
-from ....util.transforms import ortho
-from .font import _load_glyph
+from ...gloo import (TextureAtlas, set_state, get_parameter,
+                     Program, IndexBuffer, VertexBuffer)
+from ...ext.six import string_types
+from ...util.transforms import ortho
+from ...fonts import _load_glyph
 
 
 class TextureFont(object):
@@ -35,16 +35,16 @@ class TextureFont(object):
         if not (isinstance(char, string_types) and len(char) == 1):
             raise TypeError('index must be a 1-character string')
         if char not in self._glyphs:
-            self._load(char)
+            self._load_char(char)
         return self._glyphs[char]
 
-    def _load(self, char):
-        """Build glyphs corresponding to individual characters
+    def _load_char(self, char):
+        """Build a glyph corresponding to an individual character
 
         Parameters:
         -----------
-        characters : str
-            Set of characters to be represented.
+        char : str
+            A single character to be represented.
         """
         assert isinstance(char, string_types) and len(char) == 1
         assert char not in self._glyphs
@@ -52,18 +52,14 @@ class TextureFont(object):
         _load_glyph(self._font, char, self._glyphs)
         # put new glyph into the texture
         glyph = self._glyphs[char]
-        assert glyph['width'] % 3 == 0
-        region = self._atlas.get_free_region(glyph['width'] // 3 + 2,
-                                             glyph['rows'] + 2)
+        height, width, nc = glyph['bitmap'].shape
+        assert nc == 3  # RGB
+        region = self._atlas.get_free_region(width + 2, height + 2)
         if region is None:
             raise RuntimeError('Cannot store glyph')
         x, y, w, h = region
         x, y, w, h = x + 1, y + 1, w - 2, h - 2
-        data = np.array(glyph['bitmap'])
-        data.shape = (glyph['rows'], glyph['pitch'])
-        data = (data[:, :glyph['width']].astype(np.ubyte))
-        data = data.reshape(glyph['rows'], glyph['width'] // 3, 3)
-        self._atlas.set_region((x, y, w, h), data)
+        self._atlas.set_region((x, y, w, h), glyph['bitmap'])
         u0 = x / float(self._atlas.shape[1])
         v0 = y / float(self._atlas.shape[0])
         u1 = (x+w) / float(self._atlas.shape[1])
@@ -77,11 +73,12 @@ class FontManager(object):
         self.atlas = TextureAtlas()
         self._fonts = {}
 
-    def get_font(self, face, size=12, bold=False, italic=False):
+    def get_font(self, face, size=12, bold=False, italic=False, dpi=96):
         """Get a font described by face and size"""
         key = '%s-%s' % (face, size)
         if key not in self._fonts:
-            font = dict(face=face, size=size, bold=bold, italic=italic)
+            font = dict(face=face, size=size, bold=bold, italic=italic,
+                        dpi=dpi)
             self._fonts[key] = TextureFont(font, self.atlas)
         return self._fonts[key]
 
@@ -198,11 +195,11 @@ def _text_to_vbo(text, font, anchor_x='center', anchor_y='center'):
         vi = ii * 4
         vertices['a_position'][vi:vi+4] = position
         vertices['a_texcoord'][vi:vi+4] = texcoords
-        x += glyph['advance'][0] / 64.0 + kerning
-        y += glyph['advance'][1] / 64.0
+        x += glyph['advance'][0] + kerning
+        y += glyph['advance'][1]
         ascender = max(ascender, y0)
         descender = min(ascender, y1)
-        width += glyph['advance'][0] / 64.0 + kerning
+        width += glyph['advance'][0] + kerning
         height = max(height, glyph['size'][1])
         prev = char
 
@@ -225,12 +222,12 @@ def _text_to_vbo(text, font, anchor_x='center', anchor_y='center'):
 
 class Text(object):
     def __init__(self, text, size=12, color=(0., 0., 0., 1.), bold=False,
-                 italic=False, face='Arial',
+                 italic=False, face='Arial', dpi=96,
                  anchor_x='center', anchor_y='center'):
         assert isinstance(text, string_types)
         self._font_manager = FontManager()
         self._program = Program(text_vert, text_frag)
-        font = self._font_manager.get_font(face, size, bold, italic)
+        font = self._font_manager.get_font(face, size, bold, italic, dpi)
         self._program.bind(_text_to_vbo(text, font, anchor_x, anchor_y))
         self._program['u_color'] = color
         self._program['u_font_atlas'] = self._font_manager.atlas

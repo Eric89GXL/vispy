@@ -7,6 +7,10 @@
 import sys
 
 if sys.platform.startswith('linux'):
-    from ._freetype import _load_glyph  # noqa
+    from ._freetype import _load_glyph, _list_fonts  # noqa
+elif sys.platform == 'darwin':
+    from ._quartz import _load_glyph, _list_fonts  # noqa
+elif sys.platform == 'win32':
+    from ._win32 import _load_glyph, _list_fonts  # noqa
 else:
-    raise NotImplementedError  # XXX add other methods (Pyglet)
+    raise NotImplementedError('unknown system %s' % sys.platform)

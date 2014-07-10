@@ -21,6 +21,7 @@ FT_LOAD_RENDER = 4
 FT_KERNING_DEFAULT = 0
 FT_LOAD_FORCE_AUTOHINT = 32
 FT_LOAD_TARGET_LCD = 196608
+FT_LOAD_TARGET_LIGHT = 65536
 
 
 ##############################################################################
