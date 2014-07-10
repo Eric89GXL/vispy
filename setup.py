@@ -90,6 +90,7 @@ setup(
         'vispy.scene.components',
         'vispy.scene.shaders', 'vispy.scene.shaders.tests',
         'vispy.scene.visuals',
+        'vispy.scene.visuals.text',
         'vispy.scene.widgets',
         'vispy.testing', 'vispy.testing.tests',
         'vispy.util', 'vispy.util.tests',

@@ -7,6 +7,7 @@ import numpy as np
 
 from . import gl
 from .globject import GLObject
+from .wrappers import _check_conversion
 from ..util import logger
 
 
@@ -77,7 +78,7 @@ class Texture(GLObject):
         self._need_resize = False
         self._need_parameterization = True
         
-        self._interpolation = gl.GL_NEAREST, gl.GL_NEAREST
+        self._interpolation = gl.GL_NEAREST
         self._wrapping = gl.GL_CLAMP_TO_EDGE
         
         # Do we have data to build texture upon ?
@@ -110,7 +111,7 @@ class Texture(GLObject):
             self._shape = self._normalize_shape(shape)
             self._dtype = dtype
             if self._store:
-                self._data = np.empty(self._shape, dtype=self._dtype)
+                self._data = np.zeros(self._shape, dtype=self._dtype)
         else:
             raise ValueError("Either data or dtype must be given")
 
@@ -174,10 +175,13 @@ class Texture(GLObject):
 
         if self.base is not None:
             raise ValueError("Cannot set wrapping on texture view")
-
-        assert value in (gl.GL_REPEAT, gl.GL_CLAMP_TO_EDGE,
-                         gl.GL_MIRRORED_REPEAT)
-        self._wrapping = value
+        valid_dict = {gl.GL_REPEAT: gl.GL_REPEAT,
+                      'repeat': gl.GL_REPEAT,
+                      gl.GL_CLAMP_TO_EDGE: gl.GL_CLAMP_TO_EDGE,
+                      'clamp_to_edge': gl.GL_CLAMP_TO_EDGE,
+                      gl.GL_MIRRORED_REPEAT: gl.GL_MIRRORED_REPEAT,
+                      'mirrored_repeat': gl.GL_MIRRORED_REPEAT}
+        self._wrapping = _check_conversion(value, valid_dict)
         self._need_parameterization = True
 
     @property
@@ -195,9 +199,11 @@ class Texture(GLObject):
 
         if self.base is not None:
             raise ValueError("Cannot set interpolation on texture view")
-
-        assert value in (gl.GL_NEAREST, gl.GL_LINEAR)
-        self._interpolation = value
+        valid_dict = {gl.GL_NEAREST: gl.GL_NEAREST,
+                      'nearest': gl.GL_NEAREST,
+                      gl.GL_LINEAR: gl.GL_LINEAR,
+                      'linear': gl.GL_LINEAR}
+        self._interpolation = _check_conversion(value, valid_dict)
         self._need_parameterization = True
 
     def resize(self, shape):
@@ -748,6 +754,133 @@ class Texture2D(Texture):
                                self._gtype, data)
             if alignment != 4:
                 gl.glPixelStorei(gl.GL_UNPACK_ALIGNMENT, 4)
+
+
+# ------------------------------------------------------ TextureAtlas class ---
+class TextureAtlas(Texture2D):
+    """Group multiple small data regions into a larger texture.
+
+    The algorithm is based on the article by Jukka Jylänki : "A Thousand Ways
+    to Pack the Bin - A Practical Approach to Two-Dimensional Rectangle Bin
+    Packing", February 27, 2010. More precisely, this is an implementation of
+    the Skyline Bottom-Left algorithm based on C++ sources provided by Jukka
+    Jylänki at: http://clb.demon.fi/files/RectangleBinPack/.
+
+    Parameters
+    ----------
+    shape : tuple of int
+        Texture width and height (optional).
+
+    Notes
+    -----
+    An example of simple access:
+
+        >>> atlas = TextureAtlas()
+        >>> bounds = atlas.get_free_region(20, 30)
+        >>> atlas.set_region(bounds, np.random.rand(20, 30).T)
+    """
+    def __init__(self, shape=(1024, 1024)):
+        shape = np.array(shape, int)
+        assert shape.ndim == 1 and shape.size == 2
+        shape = tuple(2 ** (np.log2(shape) + 0.5).astype(int)) + (3,)
+        self._atlas_nodes = [(0, 0, shape[1])]
+        data = np.zeros(shape, np.ubyte)
+        super(TextureAtlas, self).__init__(data)
+        self.interpolation = 'linear'
+        self.wrapping = 'clamp_to_edge'
+
+    def get_free_region(self, width, height):
+        """Get a free region of given size and allocate it
+
+        Parameters
+        ----------
+        width : int
+            Width of region to allocate
+        height : int
+            Height of region to allocate
+
+        Returns
+        -------
+        bounds : tuple | None
+            A newly allocated region as (x, y, w, h) or None
+            (if failed).
+        """
+        best_height = best_width = np.inf
+        best_index = -1
+        for i in range(len(self._atlas_nodes)):
+            y = self._fit(i, width, height)
+            if y >= 0:
+                node = self._atlas_nodes[i]
+                if (y+height < best_height or
+                        (y+height == best_height and node[2] < best_width)):
+                    best_height = y+height
+                    best_index = i
+                    best_width = node[2]
+                    region = node[0], y, width, height
+        if best_index == -1:
+            return None
+
+        node = region[0], region[1] + height, width
+        self._atlas_nodes.insert(best_index, node)
+        i = best_index+1
+        while i < len(self._atlas_nodes):
+            node = self._atlas_nodes[i]
+            prev_node = self._atlas_nodes[i-1]
+            if node[0] < prev_node[0]+prev_node[2]:
+                shrink = prev_node[0]+prev_node[2] - node[0]
+                x, y, w = self._atlas_nodes[i]
+                self._atlas_nodes[i] = x+shrink, y, w-shrink
+                if self._atlas_nodes[i][2] <= 0:
+                    del self._atlas_nodes[i]
+                    i -= 1
+                else:
+                    break
+            else:
+                break
+            i += 1
+
+        # Merge nodes
+        i = 0
+        while i < len(self._atlas_nodes)-1:
+            node = self._atlas_nodes[i]
+            next_node = self._atlas_nodes[i+1]
+            if node[1] == next_node[1]:
+                self._atlas_nodes[i] = node[0], node[1], node[2]+next_node[2]
+                del self._atlas_nodes[i+1]
+            else:
+                i += 1
+
+        return region
+
+    def set_region(self, region, data):
+        """Set region data
+
+        Parameters
+        ----------
+        region : tuple of int
+            Region, usually given by `get_free_region`.
+        data : array
+            Array of data.
+        """
+        x, y, w, h = region
+        self[y:y+h, x:x+w, :] = data
+
+    def _fit(self, index, width, height):
+        """Test if region (width, height) fit into self._atlas_nodes[index]"""
+        node = self._atlas_nodes[index]
+        x, y = node[0], node[1]
+        width_left = width
+        if x+width > self.shape[1]:
+            return None
+        i = index
+        while width_left > 0:
+            node = self._atlas_nodes[i]
+            y = max(y, node[1])
+            if y+height > self.shape[0]:
+                return None
+            width_left -= node[2]
+            i += 1
+        return y
 
 '''
 # ---------------------------------------------------- TextureCubeMap class ---

@@ -67,6 +67,17 @@ def _check_color(color):
     return color
 
 
+def _check_conversion(key, valid_dict):
+    """Check for existence of key in dict, return value or raise error"""
+    if isinstance(key, string_types):
+        key = key.lower()
+    if key not in valid_dict:
+        # Only show users the nice string values
+        keys = [v for v in valid_dict.keys() if isinstance(key, string_types)]
+        raise ValueError('value must be one of %s, not %s' % (keys, key))
+    return valid_dict[key]
+
+
 ###############################################################################
 # PRIMITIVE/VERTEX
 
