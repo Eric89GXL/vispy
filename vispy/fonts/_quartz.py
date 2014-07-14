@@ -85,8 +85,8 @@ def _load_glyph(f, char, glyphs_dict):
     ct.CTFontGetGlyphsForCharacters(font, chars, glyphs, 1)
     rect = ct.CTFontGetBoundingRectsForGlyphs(font, 0, glyphs, None, 1)
     # Get advance for all glyphs in string.
-    advance = (ct.CTFontGetAdvancesForGlyphs(font, 1, glyphs, None, 1), 0)
-    advance = [int(round(a)) for a in advance]
+    advance = ct.CTFontGetAdvancesForGlyphs(font, 1, glyphs, None, 1)
+    advance = int(round(advance))
     width = max(int(np.ceil(rect.size.width) + 1), 1)
     height = max(int(np.ceil(rect.size.height) + 1), 1)
 
@@ -131,9 +131,9 @@ def _load_glyph(f, char, glyphs_dict):
     # Generate kerning
     for other_char, other_glyph in glyphs_dict.items():
         glyph['kerning'][other_char] = (_get_k_p_a(font, other_char, char) -
-                                        other_glyph['advance'][0])
+                                        other_glyph['advance'])
         other_glyph['kerning'][char] = (_get_k_p_a(font, char, other_char) -
-                                        glyph['advance'][0])
+                                        glyph['advance'])
 
 
 def _get_k_p_a(font, left, right):

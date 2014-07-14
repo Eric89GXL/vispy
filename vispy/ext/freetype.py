@@ -12,10 +12,14 @@ FreeType high-level python API
 Adapted from freetype-py.
 '''
 
+import sys
+import struct
 from ctypes import (byref, c_char_p, c_ushort, cast, util, CDLL, Structure,
                     POINTER, c_int, c_short, c_long, c_void_p, c_uint,
                     c_char, c_ubyte, CFUNCTYPE)
+
 from .six import string_types
+from ..util import get_data_file
 
 FT_LOAD_RENDER = 4
 FT_KERNING_DEFAULT = 0
@@ -23,7 +27,7 @@ FT_LOAD_FORCE_AUTOHINT = 32
 FT_LOAD_TARGET_LCD = 196608
 FT_LOAD_TARGET_LIGHT = 65536
 
-
+_64_bit = (8 * struct.calcsize("P")) == 64
 ##############################################################################
 # ft_structs
 
@@ -166,12 +170,10 @@ FT_Face = POINTER(FT_FaceRec)
 
 __dll__ = None
 FT_Library_filename = util.find_library('freetype')
+if not FT_Library_filename and sys.platform.startswith('win'):
+    fname_end = '_x64.dll' if _64_bit else '.dll'
+    FT_Library_filename = get_data_file('freetype/freetype253' + fname_end)
 if not FT_Library_filename:
-    try:
-        __dll__ = CDLL('libfreetype.so.6')
-    except OSError:
-        __dll__ = None
-if not FT_Library_filename and not __dll__:
     raise ImportError('Freetype library not found')
 if not __dll__:
     __dll__ = CDLL(FT_Library_filename)

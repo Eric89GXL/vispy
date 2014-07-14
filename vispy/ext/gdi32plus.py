@@ -7,11 +7,21 @@
 # Adapted from Pyglet
 
 import atexit
-from ctypes import (windll, Structure, POINTER, byref, c_long, c_char, c_byte,
-                    c_uint, c_float, c_int, c_ulong, c_void_p, c_uint32,
-                    c_wchar_p)
-from ctypes.wintypes import (LONG, BYTE, HFONT, HGDIOBJ, BOOL, INT_PTR, UINT,
-                             REAL, INT)
+from functools import partial
+import struct
+
+from ctypes import (windll, Structure, POINTER, byref,
+                    c_uint, c_float, c_int, c_ulong, c_uint64,
+                    c_void_p, c_uint32, c_wchar, c_wchar_p)
+from ctypes.wintypes import (LONG, BYTE, HFONT, HGDIOBJ, BOOL, UINT, INT,
+                             DWORD, LPARAM, WINFUNCTYPE)
+
+try:
+    import _winreg as winreg
+except ImportError:
+    import winreg  # noqa, analysis:ignore
+
+_64_bit = (8 * struct.calcsize("P")) == 64
 
 LF_FACESIZE = 32
 FW_BOLD = 700
@@ -21,6 +31,11 @@ FontStyleBold = 1
 FontStyleItalic = 2
 UnitPixel = 2
 UnitPoint = 3
+DEFAULT_CHARSET = 1
+ANSI_CHARSET = 0
+TRUETYPE_FONTTYPE = 4
+GM_ADVANCED = 2
+CSIDL_FONTS = 0x0014
 
 PixelFormat24bppRGB = 137224
 PixelFormat32bppRGB = 139273
@@ -35,22 +50,65 @@ StringFormatFlagsMeasureTrailingSpaces = 0x00000800
 StringFormatFlagsNoClip = 0x00004000
 StringFormatFlagsNoFitBlackBox = 0x00000004
 
+INT_PTR = c_int
+REAL = c_float
+TCHAR = c_wchar
+UINT32 = c_uint32
+HDC = c_void_p
+PSTR = c_uint64 if _64_bit else c_uint
+
 
 # gdi32
 
+class POINT(Structure):
+    _fields_ = [('x', LONG), ('y', LONG)]
+
+
+class RECT(Structure):
+    _fields_ = [('left', LONG), ('top', LONG),
+                ('right', LONG), ('bottom', LONG)]
+
+
+class PANOSE(Structure):
+    _fields_ = [
+        ('bFamilyType', BYTE), ('bSerifStyle', BYTE), ('bWeight', BYTE),
+        ('bProportion', BYTE), ('bContrast', BYTE), ('bStrokeVariation', BYTE),
+        ('bArmStyle', BYTE), ('bLetterform', BYTE), ('bMidline', BYTE),
+        ('bXHeight', BYTE)]
+
+
 class TEXTMETRIC(Structure):
     _fields_ = [
-        ('tmHeight', c_long), ('tmAscent', c_long), ('tmDescent', c_long),
-        ('tmInternalLeading', c_long), ('tmExternalLeading', c_long),
-        ('tmAveCharWidth', c_long), ('tmMaxCharWidth', c_long),
-        ('tmWeight', c_long), ('tmOverhang', c_long),
-        ('tmDigitizedAspectX', c_long), ('tmDigitizedAspectY', c_long),
-        ('tmFirstChar', c_char), ('tmLastChar', c_char),
-        ('tmDefaultChar', c_char), ('tmBreakChar', c_char),
-        ('tmItalic', c_byte), ('tmUnderlined', c_byte),
-        ('tmStruckOut', c_byte), ('tmPitchAndFamily', c_byte),
-        ('tmCharSet', c_byte)]
-    __slots__ = [f[0] for f in _fields_]
+        ('tmHeight', LONG), ('tmAscent', LONG), ('tmDescent', LONG),
+        ('tmInternalLeading', LONG), ('tmExternalLeading', LONG),
+        ('tmAveCharWidth', LONG), ('tmMaxCharWidth', LONG),
+        ('tmWeight', LONG), ('tmOverhang', LONG),
+        ('tmDigitizedAspectX', LONG), ('tmDigitizedAspectY', LONG),
+        ('tmFirstChar', TCHAR), ('tmLastChar', TCHAR),
+        ('tmDefaultChar', TCHAR), ('tmBreakChar', TCHAR),
+        ('tmItalic', BYTE), ('tmUnderlined', BYTE),
+        ('tmStruckOut', BYTE), ('tmPitchAndFamily', BYTE),
+        ('tmCharSet', BYTE)]
+
+
+class OUTLINETEXTMETRIC(Structure):
+    _fields_ = [
+        ('otmSize', UINT), ('otmTextMetrics', TEXTMETRIC),
+        ('otmMysteryBytes', BYTE), ('otmPanoseNumber', PANOSE),
+        ('otmMysteryByte', BYTE),
+        ('otmfsSelection', UINT), ('otmfsType', UINT),
+        ('otmsCharSlopeRise', INT), ('otmsCharSlopeRun', INT),
+        ('otmItalicAngle', INT), ('otmEMSquare', UINT), ('otmAscent', INT),
+        ('otmDescent', INT), ('otmLineGap', UINT), ('otmsCapEmHeight', UINT),
+        ('otmsXHeight', UINT), ('otmrcFontBox', RECT), ('otmMacAscent', INT),
+        ('otmMacDescent', INT), ('otmMacLineGap', UINT),
+        ('otmusMinimumPPEM', UINT), ('otmptSubscriptSize', POINT),
+        ('otmptSubscriptOffset', POINT), ('otmptSuperscriptSize', POINT),
+        ('otmptSuperscriptOffset', POINT), ('otmsStrikeoutSize', UINT),
+        ('otmsStrikeoutPosition', INT), ('otmsUnderscoreSize', INT),
+        ('otmsUnderscorePosition', INT), ('otmpFamilyName', PSTR),
+        ('otmpFaceName', PSTR), ('otmpStyleName', PSTR),
+        ('otmpFullName', PSTR), ('junk', (BYTE) * 1024)]  # room for strs
 
 
 class LOGFONT(Structure):
@@ -60,39 +118,44 @@ class LOGFONT(Structure):
         ('lfUnderline', BYTE), ('lfStrikeOut', BYTE), ('lfCharSet', BYTE),
         ('lfOutPrecision', BYTE), ('lfClipPrecision', BYTE),
         ('lfQuality', BYTE), ('lfPitchAndFamily', BYTE),
-        ('lfFaceName', (c_char * LF_FACESIZE))]
-
-
-class Rectf(Structure):
-    _fields_ = [('x', c_float), ('y', c_float),
-                ('width', c_float), ('height', c_float)]
+        ('lfFaceName', (TCHAR * LF_FACESIZE))]
 
 
 gdi32 = windll.gdi32
-gdi32.CreateFontIndirectA.restype = HFONT
-gdi32.CreateFontIndirectA.argtypes = [POINTER(LOGFONT)]
+
+gdi32.CreateFontIndirectW.restype = HFONT
+gdi32.CreateFontIndirectW.argtypes = [POINTER(LOGFONT)]
+
 gdi32.SelectObject.restype = HGDIOBJ
-gdi32.SelectObject.argtypes = [c_void_p, HGDIOBJ]  # HDC
-gdi32.GetTextMetricsA.restype = BOOL
-gdi32.GetTextMetricsA.argtypes = [c_void_p, POINTER(TEXTMETRIC)]  # HDC
+gdi32.SelectObject.argtypes = [HDC, HGDIOBJ]
+
+gdi32.SetGraphicsMode.restype = INT
+gdi32.SetGraphicsMode.argtypes = [HDC, INT]
+
+gdi32.GetTextMetricsW.restype = BOOL
+gdi32.GetTextMetricsW.argtypes = [HDC, POINTER(TEXTMETRIC)]
+
+FONTENUMPROC = WINFUNCTYPE(INT, POINTER(LOGFONT), POINTER(TEXTMETRIC),
+                           DWORD, c_void_p)
+gdi32.EnumFontFamiliesExW.restype = INT
+gdi32.EnumFontFamiliesExW.argtypes = [HDC, POINTER(LOGFONT),
+                                      FONTENUMPROC, LPARAM, DWORD]
+
+gdi32.GetOutlineTextMetricsW.restype = UINT
+gdi32.GetOutlineTextMetricsW.argtypes = [HDC, UINT,
+                                         POINTER(OUTLINETEXTMETRIC)]
+
+user32 = windll.user32
+
+user32.GetDC.restype = HDC  # HDC
+user32.GetDC.argtypes = [UINT32]  # HWND
 
 
 # gdiplus
 
-class Rect(Structure):
-    _fields_ = [('X', c_int), ('Y', c_int),
-                ('Width', c_int), ('Height', c_int)]
-
-
-class BitmapData(Structure):
-    _fields_ = [('Width', c_uint), ('Height', c_uint), ('Stride', c_int),
-                ('PixelFormat', c_int), ('Scan0', POINTER(c_byte)),
-                ('Reserved', POINTER(c_uint))]
-
-
 class GdiplusStartupInput(Structure):
     _fields_ = [
-        ('GdiplusVersion', c_uint32), ('DebugEventCallback', c_void_p),
+        ('GdiplusVersion', UINT32), ('DebugEventCallback', c_void_p),
         ('SuppressBackgroundThread', BOOL), ('SuppressExternalCodecs', BOOL)]
 
 
@@ -102,45 +165,17 @@ class GdiplusStartupOutput(Structure):
 
 gdiplus = windll.gdiplus
 
-gdiplus.GdipCreateBitmapFromScan0.restype = c_int
-gdiplus.GdipCreateBitmapFromScan0.argtypes = [c_int, c_int, c_int, c_int,
-                                              POINTER(BYTE), c_void_p]
-gdiplus.GdipGetImageGraphicsContext.restype = c_int
-gdiplus.GdipGetImageGraphicsContext.argtypes = [c_void_p, c_void_p]
-gdiplus.GdipSetPageUnit.restype = c_int
-gdiplus.GdipSetPageUnit.argtypes = [c_void_p, c_int]
-gdiplus.GdipSetTextRenderingHint.restype = c_int
-gdiplus.GdipSetTextRenderingHint.argtypes = [c_void_p, c_int]
-gdiplus.GdipCreateSolidFill.restype = c_int
-gdiplus.GdipCreateSolidFill.argtypes = [c_int, c_void_p]  # ARGB
-gdiplus.GdipCreateMatrix.restype = None
-gdiplus.GdipCreateMatrix.argtypes = [c_void_p]
-gdiplus.GdipStringFormatGetGenericTypographic.restype = c_int
-gdiplus.GdipStringFormatGetGenericTypographic.argtypes = [c_void_p]
-gdiplus.GdipCloneStringFormat.restype = c_int
-gdiplus.GdipCloneStringFormat.argtypes = [c_void_p, c_void_p]
-gdiplus.GdipSetStringFormatFlags.restype = c_int
-gdiplus.GdipSetStringFormatFlags.argtypes = [c_void_p, c_int]
-gdiplus.GdipMeasureString.restype = c_int
-gdiplus.GdipMeasureString.argtypes = [c_void_p, c_wchar_p, c_int, c_void_p,
-                                      c_void_p, c_void_p, c_void_p, INT_PTR,
-                                      INT_PTR]
-gdiplus.GdipGraphicsClear.restype = c_int
-gdiplus.GdipGraphicsClear.argtypes = [c_void_p, c_int]  # ARGB
-gdiplus.GdipDrawString.restype = c_int
-gdiplus.GdipDrawString.argtypes = [c_void_p, c_wchar_p, c_int, c_void_p,
-                                   c_void_p, c_void_p, c_void_p]
-gdiplus.GdipFlush.restype = c_int
-gdiplus.GdipFlush.argtypes = [c_void_p, c_int]
-gdiplus.GdipBitmapLockBits.restype = c_int
-gdiplus.GdipBitmapLockBits.argtypes = [c_void_p, c_void_p, UINT, c_int,
-                                       c_void_p]
-gdiplus.GdipBitmapUnlockBits.restype = c_int
-gdiplus.GdipBitmapUnlockBits.argtypes = [c_void_p, c_void_p]
 gdiplus.GdipCreateFontFamilyFromName.restype = c_int
 gdiplus.GdipCreateFontFamilyFromName.argtypes = [c_wchar_p, c_void_p, c_void_p]
-gdiplus.GdipCreateFont.restype = c_int
-gdiplus.GdipCreateFont.argtypes = [c_void_p, REAL, INT, c_int, c_void_p]
+
+gdiplus.GdipNewPrivateFontCollection.restype = c_int
+gdiplus.GdipNewPrivateFontCollection.argtypes = [c_void_p]
+
+gdiplus.GdipPrivateAddFontFile.restype = c_int
+gdiplus.GdipPrivateAddFontFile.argtypes = [c_void_p, c_wchar_p]
+
+gdiplus.GdipGetFamilyName.restype = c_int
+gdiplus.GdipGetFamilyName.argtypes = [c_void_p, c_wchar_p, c_int]
 
 
 def gdiplus_init():
@@ -149,14 +184,6 @@ def gdiplus_init():
     startup_in.GdiplusVersion = 1
     startup_out = GdiplusStartupOutput()
     gdiplus.GdiplusStartup(byref(token), byref(startup_in), byref(startup_out))
-    atexit.register(gdiplus.GdiplusShutdown(token))
+    atexit.register(partial(gdiplus.GdiplusShutdown, token))
 
 gdiplus_init()
-
-
-# user32
-
-user32 = windll.user32
-
-user32.GetDC.restype = c_void_p  # HDC
-user32.GetDC.argtypes = [c_uint32]  # HWND

@@ -195,16 +195,15 @@ def _text_to_vbo(text, font, anchor_x='center', anchor_y='center'):
         vi = ii * 4
         vertices['a_position'][vi:vi+4] = position
         vertices['a_texcoord'][vi:vi+4] = texcoords
-        x += glyph['advance'][0] + kerning
-        y += glyph['advance'][1]
+        x += glyph['advance'] + kerning
         ascender = max(ascender, y0)
         descender = min(ascender, y1)
-        width += glyph['advance'][0] + kerning
+        width += glyph['advance'] + kerning
         height = max(height, glyph['size'][1])
         prev = char
 
     # Tight bounding box (loose would be width, font.height/.ascender/.desc)
-    width -= glyph['advance'][0] / 64.0 - kerning + glyph['size'][0]
+    width -= glyph['advance'] / 64.0 - kerning + glyph['size'][0]
     dx = dy = 0
     if anchor_y == 'top':
         dy = -ascender

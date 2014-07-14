@@ -5,13 +5,22 @@
 # -----------------------------------------------------------------------------
 
 # Use freetype to get glyph bitmaps
+
+import sys
 import numpy as np
 
 from ..ext.freetype import (FT_LOAD_RENDER, FT_LOAD_FORCE_AUTOHINT,
                             FT_LOAD_TARGET_LIGHT, Face, Vector, Matrix)
-from ..ext.fontconfig import find_font
 from ..util import run_subprocess
 
+
+# Convert face to filename
+if sys.platform.startswith('linux'):
+    from ..ext.fontconfig import find_font
+elif sys.platform.startswith('win'):
+    from ._win32 import find_font  # noqa, analysis:ignore
+else:
+    raise NotImplementedError
 
 _font_dict = {}
 
@@ -44,8 +53,7 @@ def _load_glyph(f, char, glyphs_dict):
     top = face.glyph.bitmap_top
     width = face.glyph.bitmap.width
     height = face.glyph.bitmap.rows
-    advance = (face.glyph.advance.x / 64., face.glyph.advance.y / 64.)
-    advance = [int(round(a)) for a in advance]
+    advance = int(round(face.glyph.advance.x / 64.))
     # reshape bitmap
     bitmap = np.array(bitmap.buffer)
     w0 = bitmap.size // height if bitmap.size > 0 else 0
