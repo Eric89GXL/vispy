@@ -3,6 +3,7 @@
 import warnings
 from ctypes import (util, cdll, c_void_p, c_char_p, c_double, c_int, c_bool,
                     Union, Structure, byref, POINTER)
+from ..util import run_subprocess
 
 # Some code adapted from Pyglet
 
@@ -109,3 +110,11 @@ def find_font(face, size, bold, italic):
         raise RuntimeError('No filename or FT face for "%s"' % face)
     fname = value.u.s
     return fname
+
+
+def list_fonts():
+    """List system fonts"""
+    stdout_, stderr = run_subprocess(['fc-list', ':', 'family'])
+    vals = stdout_.decode('utf-8').strip().split('\n')
+    vals = [v.split(',')[0] for v in vals]
+    return sorted(vals, key=lambda s: s.lower())

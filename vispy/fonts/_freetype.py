@@ -11,7 +11,6 @@ import numpy as np
 
 from ..ext.freetype import (FT_LOAD_RENDER, FT_LOAD_FORCE_AUTOHINT,
                             FT_LOAD_TARGET_LIGHT, Face, Vector, Matrix)
-from ..util import run_subprocess
 
 
 # Convert face to filename
@@ -73,11 +72,3 @@ def _load_glyph(f, char, glyphs_dict):
         glyph['kerning'][other_char] = kerning.x / (64.0*hres)
         kerning = face.get_kerning(char, other_char)
         other_glyph['kerning'][char] = kerning.x / (64.0*hres)
-
-
-def list_fonts():
-    """List system fonts"""
-    stdout_, stderr = run_subprocess(['fc-list', ':', 'family'])
-    vals = stdout_.decode('utf-8').strip().split('\n')
-    vals = [v.split(',')[0] for v in vals]
-    return sorted(vals, key=lambda s: s.lower())

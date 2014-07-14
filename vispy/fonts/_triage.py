@@ -7,7 +7,8 @@
 import sys
 
 if sys.platform.startswith('linux'):
-    from ._freetype import _load_glyph, list_fonts
+    from ._freetype import _load_glyph
+    from ..ext.fontconfig import list_fonts
 elif sys.platform == 'darwin':
     from ._quartz import _load_glyph, list_fonts
 elif sys.platform == 'win32':
