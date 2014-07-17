@@ -15,7 +15,7 @@ from ..util import logger
 class Texture(GLObject):
     """
     A Texture is used to represent a topological set of scalar values.
-    
+
     Parameters
     ----------
 
@@ -60,7 +60,7 @@ class Texture(GLObject):
         # np.dtype(np.float64) : gl.GL_DOUBLE
     }
 
-    def __init__(self, data=None, shape=None, dtype=None, base=None, 
+    def __init__(self, data=None, shape=None, dtype=None, base=None,
                  target=None, offset=None, store=True, resizeable=True):
         GLObject.__init__(self)
         self._data = None
@@ -73,14 +73,14 @@ class Texture(GLObject):
         self._resizeable = resizeable
         self._valid = True
         self._views = []
-        
+
         # Extra stages that are handled in _activate()
         self._need_resize = False
         self._need_parameterization = True
-        
+
         self._interpolation = gl.GL_NEAREST
         self._wrapping = gl.GL_CLAMP_TO_EDGE
-        
+
         # Do we have data to build texture upon ?
         if data is not None:
             self._need_resize = True
@@ -119,7 +119,7 @@ class Texture(GLObject):
             self._offset = (0,) * len(self._shape)
         else:
             self._offset = offset
-        
+
         # Check dtype
         if hasattr(self._dtype, 'fields') and self._dtype.fields:
             raise ValueError("Texture dtype cannot be structured")
@@ -130,7 +130,7 @@ class Texture(GLObject):
 
     def _normalize_shape(self, data_or_shape):
         return data_or_shape
-    
+
     @property
     def shape(self):
         """ Texture shape """
@@ -219,9 +219,9 @@ class Texture(GLObject):
         -----
         This clears any pending operations.
         """
-        
+
         shape = self._normalize_shape(shape)
-        
+
         if not self._resizeable:
             raise RuntimeError("Texture is not resizeable")
 
@@ -233,14 +233,14 @@ class Texture(GLObject):
 
         if shape == self.shape:
             return
-        
+
         # Reset format if size of last dimension differs
         if shape[-1] != self.shape[-1]:
             format = Texture._formats.get(shape[-1], None)
             if format is None:
                 raise ValueError("Cannot determine texture format from shape")
             self._format = format
-        
+
         # Invalidate any view on this texture
         for view in self._views:
             view._valid = False
@@ -282,16 +282,16 @@ class Texture(GLObject):
         if self.base is not None:
             self.base.set_data(data, offset=self.offset, copy=copy)
             return
-        
+
         # Force using the same data type. We could probably allow it,
         # but with the views and data storage, this is rather complex.
         if data.dtype != self.dtype:
             raise ValueError('Cannot set texture data with another dtype.')
-        
+
         # Copy if needed, check/normalize shape
         data = np.array(data, copy=copy)
         data = self._normalize_shape(data)
-        
+
         # Check data has the right shape
         # if len(data.shape) != len(self.shape):
         #  raise ValueError("Data has wrong shape")
@@ -312,12 +312,12 @@ class Texture(GLObject):
         for i in range(len(data.shape)):
             if offset[i] + data.shape[i] > self.shape[i]:
                 raise ValueError("Data is too large")
-        
+
         if self._store:
-            pass  
+            pass
             # todo: @nico should we not update self._data?
             # but we need to keep the offset into account.
-        
+
         self._pending_data.append((data, offset))
 
     def __getitem__(self, key):
@@ -467,7 +467,7 @@ class Texture(GLObject):
             wrap_t = self._wrapping
         gl.glTexParameterf(self._target, gl.GL_TEXTURE_WRAP_S, wrap_s)
         gl.glTexParameterf(self._target, gl.GL_TEXTURE_WRAP_T, wrap_t)
-    
+
     def _create(self):
         """ Create texture on GPU """
 
@@ -485,7 +485,7 @@ class Texture(GLObject):
 
         logger.debug("GPU: Activate texture")
         gl.glBindTexture(self.target, self._handle)
-        
+
         # We let base texture to handle all operations
         if self.base is not None:
             return
@@ -494,24 +494,24 @@ class Texture(GLObject):
         if self._need_resize:
             self._resize()
             self._need_resize = False
-        
+
         # Reparameterize if necessary
         if self._need_parameterization:
             self._parameterize()
             self._need_parameterization = False
-        
+
         # Update pending data if necessary
         if self._pending_data:
             logger.debug("GPU: Updating texture (%d pending operation(s))" %
                          len(self._pending_data))
             self._update_data()
-    
+
     def _deactivate(self):
         """ Deactivate texture on GPU """
 
         logger.debug("GPU: Deactivate texture")
         gl.glBindTexture(self._target, 0)
-    
+
     # Taken from pygly
     def _get_alignment(self, width):
         """Determines a textures byte alignment.
@@ -537,7 +537,7 @@ class Texture(GLObject):
 # --------------------------------------------------------- Texture1D class ---
 class Texture1D(Texture):
     """ One dimensional texture
-    
+
     Parameters
     ----------
 
@@ -553,27 +553,27 @@ class Texture1D(Texture):
         that modifying the data after passing it here might result in
         undesired behavior, unless a copy is given. Default True.
     format : ENUM
-        The format of the texture: GL_LUMINANCE, ALPHA, GL_LUMINANCE_ALPHA, 
-        or GL_RGB, GL_RGBA. If not given the format is chosen automatically 
+        The format of the texture: GL_LUMINANCE, ALPHA, GL_LUMINANCE_ALPHA,
+        or GL_RGB, GL_RGBA. If not given the format is chosen automatically
         based on the number of channels. When the data has one channel,
         GL_LUMINANCE is assumed.
-    
+
     Notes
     -----
     Under water this is really a 2D texture (1D textures are not
     supported in GL ES 2.0).
-    
+
     """
 
-    def __init__(self, data=None, shape=None, dtype=None, store=True, 
+    def __init__(self, data=None, shape=None, dtype=None, store=True,
                  format=None, **kwargs):
-        
+
         # We don't want these parameters to be seen from outside (because they
         # are only used internally)
         offset = kwargs.get("offset", None)
         base = kwargs.get("base", None)
         resizeable = kwargs.get("resizeable", True)
-        
+
         Texture.__init__(self, data=data, shape=shape, dtype=dtype,
                          base=base, resizeable=resizeable, store=store,
                          target=gl.GL_TEXTURE_2D, offset=offset)
@@ -611,7 +611,7 @@ class Texture1D(Texture):
             return data.reshape(*shape)
         else:
             return shape
-    
+
     @property
     def width(self):
         """ Texture width """
@@ -622,10 +622,10 @@ class Texture1D(Texture):
         """ Texture resize on GPU """
 
         logger.debug("GPU: Resizing texture(%s)" % (self.width))
-        # gl.glTexImage1D(self.target, 0, self._format, self._format, 
+        # gl.glTexImage1D(self.target, 0, self._format, self._format,
         #                 self._gtype, (self._width,))
         shape = self.height, self.width
-        gl.glTexImage2D(self.target, 0, self._format, self._format, 
+        gl.glTexImage2D(self.target, 0, self._format, self._format,
                         self._gtype, shape)
 
     def _update_data(self):
@@ -637,16 +637,16 @@ class Texture1D(Texture):
                 x = 0
             else:
                 x = offset[0]
-            # gl.glTexSubImage1D(self.target, 0, x, self._format, 
+            # gl.glTexSubImage1D(self.target, 0, x, self._format,
             #                    self._gtype, data)
-            gl.glTexSubImage2D(self.target, 0, x, self._format, 
+            gl.glTexSubImage2D(self.target, 0, x, self._format,
                                self._gtype, data)
 
 
 # --------------------------------------------------------- Texture2D class ---
 class Texture2D(Texture):
     """ Two dimensional texture
-    
+
     Parameters
     ----------
 
@@ -662,13 +662,13 @@ class Texture2D(Texture):
         that modifying the data after passing it here might result in
         undesired behavior, unless a copy is given. Default True.
     format : ENUM
-        The format of the texture: GL_LUMINANCE, ALPHA, GL_LUMINANCE_ALPHA, 
-        or GL_RGB, GL_RGBA. If not given the format is chosen automatically 
+        The format of the texture: GL_LUMINANCE, ALPHA, GL_LUMINANCE_ALPHA,
+        or GL_RGB, GL_RGBA. If not given the format is chosen automatically
         based on the number of channels. When the data has one channel,
         GL_LUMINANCE is assumed.
     """
 
-    def __init__(self, data=None, shape=None, dtype=None, store=True, 
+    def __init__(self, data=None, shape=None, dtype=None, store=True,
                  format=None, **kwargs):
 
         # We don't want these parameters to be seen from outside (because they
@@ -688,7 +688,7 @@ class Texture2D(Texture):
             self._format = format
         if self._format is None:
             raise ValueError("Cannot convert data to texture")
-    
+
     def _normalize_shape(self, data_or_shape):
         # Get data and shape from input
         if isinstance(data_or_shape, np.ndarray):
@@ -733,7 +733,7 @@ class Texture2D(Texture):
         logger.debug("GPU: Resizing texture(%sx%s)" %
                      (self.width, self.height))
         shape = self.height, self.width
-        gl.glTexImage2D(self.target, 0, self._format, self._format, 
+        gl.glTexImage2D(self.target, 0, self._format, self._format,
                         self._gtype, shape)
 
     def _update_data(self):
@@ -750,7 +750,7 @@ class Texture2D(Texture):
             if alignment != 4:
                 gl.glPixelStorei(gl.GL_UNPACK_ALIGNMENT, alignment)
             #width, height = data.shape[1], data.shape[0]
-            gl.glTexSubImage2D(self.target, 0, x, y, self._format, 
+            gl.glTexSubImage2D(self.target, 0, x, y, self._format,
                                self._gtype, data)
             if alignment != 4:
                 gl.glPixelStorei(gl.GL_UNPACK_ALIGNMENT, 4)
@@ -773,6 +773,7 @@ class TextureAtlas(Texture2D):
 
     Notes
     -----
+    This creates a 2D texture that holds 1D float32 data.
     An example of simple access:
 
         >>> atlas = TextureAtlas()
@@ -782,9 +783,9 @@ class TextureAtlas(Texture2D):
     def __init__(self, shape=(1024, 1024)):
         shape = np.array(shape, int)
         assert shape.ndim == 1 and shape.size == 2
-        shape = tuple(2 ** (np.log2(shape) + 0.5).astype(int)) + (3,)
+        shape = tuple(2 ** (np.log2(shape) + 0.5).astype(int)) + (1,)
         self._atlas_nodes = [(0, 0, shape[1])]
-        data = np.zeros(shape, np.ubyte)
+        data = np.zeros(shape, np.float32)
         super(TextureAtlas, self).__init__(data)
         self.interpolation = 'linear'
         self.wrapping = 'clamp_to_edge'
@@ -863,7 +864,7 @@ class TextureAtlas(Texture2D):
             Array of data.
         """
         x, y, w, h = region
-        self[y:y+h, x:x+w, :] = data
+        self[y:y+h, x:x+w, 0] = data
 
     def _fit(self, index, width, height):
         """Test if region (width, height) fit into self._atlas_nodes[index]"""
@@ -886,7 +887,7 @@ class TextureAtlas(Texture2D):
 # ---------------------------------------------------- TextureCubeMap class ---
 class TextureCubeMap(Texture):
     """ A TextureCubeMap represents a set of 6 2D Textures
-    
+
     Parameters
     ----------
 
@@ -902,21 +903,21 @@ class TextureCubeMap(Texture):
         that modifying the data after passing it here might result in
         undesired behavior, unless a copy is given. Default True.
     format : ENUM
-        The format of the texture: GL_LUMINANCE, ALPHA, GL_LUMINANCE_ALPHA, 
-        or GL_RGB, GL_RGBA. If not given the format is chosen automatically 
+        The format of the texture: GL_LUMINANCE, ALPHA, GL_LUMINANCE_ALPHA,
+        or GL_RGB, GL_RGBA. If not given the format is chosen automatically
         based on the number of channels. When the data has one channel,
         GL_LUMINANCE is assumed.
     """
 
     def __init__(self, data=None, shape=None, dtype=None, store=True,
                  format=None, **kwargs):
-        
+
         # We don't want these parameters to be seen from outside (because they
         # are only used internally)
         offset = kwargs.get("offset", None)
         base = kwargs.get("base", None)
         resizeable = kwargs.get("resizeable", True)
-        
+
         Texture.__init__(self, data=data, shape=shape, dtype=dtype, base=base,
                          store=store, target=gl.GL_TEXTURE_CUBE_MAP,
                          offset=offset, resizeable=resizeable)
@@ -942,7 +943,7 @@ class TextureCubeMap(Texture):
                               resizeable=False, store=store,
                               target=target + i, offset=offset)
             self._textures.append(T)
-    
+
     def _normalize_shape(self, data_or_shape):
         # Get data and shape from input
         if isinstance(data_or_shape, np.ndarray):
@@ -972,7 +973,7 @@ class TextureCubeMap(Texture):
             return data.reshape(*shape)
         else:
             return shape
-        
+
     def activate(self):
         """ Activate the object on GPU """
 

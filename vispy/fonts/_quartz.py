@@ -18,11 +18,10 @@ from ..ext.cocoapy import cf, ct, quartz, CFRange, CFSTR, CGGlyph, UniChar, \
 _font_dict = {}
 
 
-def _load_font(face, size, bold, italic, dpi=96):
-    key = '%s-%s-%s-%s-%s' % (face, size, bold, italic, dpi)
+def _load_font(face, size, bold, italic):
+    key = '%s-%s-%s-%s' % (face, size, bold, italic)
     if key in _font_dict:
         return _font_dict[key]
-    size = size * dpi / 72.0
     traits = 0
     traits |= kCTFontBoldTrait if bold else 0
     traits |= kCTFontItalicTrait if italic else 0
@@ -60,8 +59,6 @@ def _load_font(face, size, bold, italic, dpi=96):
     font = c_void_p(ct.CTFontCreateWithFontDescriptor(desc, size, None))
     if not font:
         raise RuntimeError("Couldn't load font: %s" % face.decode('utf-8'))
-    # ascent = int(np.ceil(ct.CTFontGetAscent(ctFont)))
-    # descent = -int(np.ceil(ct.CTFontGetDescent(ctFont)))
     _font_dict[key] = font
     return font
 
@@ -86,12 +83,12 @@ def _load_glyph(f, char, glyphs_dict):
     rect = ct.CTFontGetBoundingRectsForGlyphs(font, 0, glyphs, None, 1)
     # Get advance for all glyphs in string.
     advance = ct.CTFontGetAdvancesForGlyphs(font, 1, glyphs, None, 1)
-    advance = int(round(advance))
+    advance = advance
     width = max(int(np.ceil(rect.size.width) + 1), 1)
     height = max(int(np.ceil(rect.size.height) + 1), 1)
 
-    left = int(np.floor(rect.origin.x))
-    baseline = -int(np.floor(rect.origin.y))
+    left = rect.origin.x
+    baseline = rect.origin.y
     top = height - baseline
 
     bits_per_component = 8
@@ -123,8 +120,7 @@ def _load_glyph(f, char, glyphs_dict):
     # reshape bitmap (don't know why it's only alpha on OSX...)
     bitmap = np.array(buffer, np.ubyte)
     bitmap.shape = (height, width, 4)
-    bitmap[:, :, :] = bitmap[:, :, 3][:, :, np.newaxis]
-    bitmap = bitmap[:, :, :3].copy()
+    bitmap = bitmap[:, :, 3].copy()
     glyph = dict(char=char, offset=(left, top), bitmap=bitmap,
                  advance=advance, kerning={})
     glyphs_dict[char] = glyph

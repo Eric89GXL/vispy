@@ -23,14 +23,14 @@ from ..ext.gdi32plus import (gdiplus, gdi32, user32, winreg, LOGFONT,
 
 # XXX This isn't perfect, but it should work for now...
 
-def find_font(face, size, bold, italic, dpi=96.):
+def find_font(face, size, bold, italic):
     style_dict = {'Regular': 0, 'Bold': 1, 'Italic': 2, 'Bold Italic': 3}
 
     # Figure out which font to actually use by trying to instantiate by name
     dc = user32.GetDC(0)  # noqa, analysis:ignore
     gdi32.SetGraphicsMode(dc, GM_ADVANCED)  # only TT and OT fonts
     logfont = LOGFONT()
-    logfont.lfHeight = int(-size * dpi / 72.)  # conv point to pixels
+    logfont.lfHeight = int(-size)  # conv point to pixels
     logfont.lfWeight = FW_BOLD if bold else FW_NORMAL
     logfont.lfItalic = italic
     logfont.lfFaceName = face.encode('utf-8')

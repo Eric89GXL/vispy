@@ -40,6 +40,7 @@ try:
 except ImportError:
     pass  # it's not essential for installation
 from distutils.core import setup
+from Cython.Build import cythonize
 
 name = 'vispy'
 description = 'Interactive visualization in Python'
@@ -96,6 +97,8 @@ setup(
         'vispy.util', 'vispy.util.tests',
         'vispy.util.dataio', 'vispy.util.geometry'
     ],
+    ext_modules=cythonize([op.join('vispy', 'scene', 'visuals', 'text', '_sdf.pyx'),
+                           ]),
     package_dir={
         'vispy': 'vispy'},
     package_data={

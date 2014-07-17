@@ -9,8 +9,8 @@
 import sys
 import numpy as np
 
-from ..ext.freetype import (FT_LOAD_RENDER, FT_LOAD_FORCE_AUTOHINT,
-                            FT_LOAD_TARGET_LIGHT, Face, Vector, Matrix)
+from ..ext.freetype import (FT_LOAD_RENDER, FT_LOAD_NO_HINTING,
+                            FT_LOAD_NO_AUTOHINT, Face)
 
 
 # Convert face to filename
@@ -36,39 +36,29 @@ def _load_font(face, size, bold, italic):
 
 def _load_glyph(f, char, glyphs_dict):
     """Load glyph from font into dict"""
-    freetype_flags = (FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT |
-                      FT_LOAD_TARGET_LIGHT)
+    freetype_flags = FT_LOAD_RENDER | FT_LOAD_NO_HINTING | FT_LOAD_NO_AUTOHINT
     face = _load_font(f['face'], f['size'], f['bold'], f['italic'])
-    pen = Vector(0, 0)
-    hres = 64
-    face.set_char_size(int(f['size'] * 64), 0, hres*f['dpi'], f['dpi'])
-    # 1024 == int((1./64.) * 0x10000L), 65536 = int(1. * 0x10000L)
-    matrix = Matrix(1024, 0, 0, 65536)
-    face.set_transform(matrix, pen)
-    # actually get the character of interest
+    face.set_char_size(f['size'] * 64)
+    # get the character of interest
     face.load_char(char, freetype_flags)
     bitmap = face.glyph.bitmap
-    left = face.glyph.bitmap_left
-    top = face.glyph.bitmap_top
     width = face.glyph.bitmap.width
     height = face.glyph.bitmap.rows
-    advance = int(round(face.glyph.advance.x / 64.))
-    # reshape bitmap
     bitmap = np.array(bitmap.buffer)
     w0 = bitmap.size // height if bitmap.size > 0 else 0
     bitmap.shape = (height, w0)
-    bitmap = (bitmap[:, :width].astype(np.ubyte))
-    #bitmap = bitmap.reshape(height, width // 3, 3)  # For LCD rendering
-    bitmap.shape = (height, width, 1)
-    bitmap = np.repeat(bitmap, 3, axis=-1)
+    bitmap = bitmap[:, :width].astype(np.ubyte)
+
+    left = face.glyph.bitmap_left
+    top = face.glyph.bitmap_top
+    advance = face.glyph.advance.x / 64.
     glyph = dict(char=char, offset=(left, top), bitmap=bitmap,
                  advance=advance, kerning={})
     glyphs_dict[char] = glyph
     # Generate kerning
+    face.set_char_size(f['size'] * 64)
     for other_char, other_glyph in glyphs_dict.items():
-        # 64 * 64 because of 26.6 encoding AND the transform matrix
-        # used in texture_font_load_face (hres = 64)
         kerning = face.get_kerning(other_char, char)
-        glyph['kerning'][other_char] = kerning.x / (64.0*hres)
+        glyph['kerning'][other_char] = kerning.x / 64.0
         kerning = face.get_kerning(char, other_char)
-        other_glyph['kerning'][char] = kerning.x / (64.0*hres)
+        other_glyph['kerning'][char] = kerning.x / 64.0
