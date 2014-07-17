@@ -34,13 +34,15 @@ Announcing:
 
 import os
 from os import path as op
+import numpy as np
+
 try:
     # use setuptools namespace, allows for "develop"
     import setuptools  # noqa, analysis:ignore
 except ImportError:
     pass  # it's not essential for installation
-from distutils.core import setup
-from Cython.Build import cythonize
+from distutils.core import setup, Extension
+from Cython.Distutils import build_ext
 
 name = 'vispy'
 description = 'Interactive visualization in Python'
@@ -63,6 +65,11 @@ for line in open(initFile).readlines():
     if docStatus == 1:
         __doc__ += line
 
+
+extensions = [Extension('vispy.scene.visuals.text._sdf',
+                        [op.join('vispy', 'scene', 'visuals', 'text',
+                                 '_sdf.pyx')]),
+              ]
 
 setup(
     name=name,
@@ -92,13 +99,15 @@ setup(
         'vispy.scene.components',
         'vispy.scene.shaders', 'vispy.scene.shaders.tests',
         'vispy.scene.visuals',
+        'vispy.scene.visuals.text',
         'vispy.scene.widgets',
         'vispy.testing', 'vispy.testing.tests',
         'vispy.util', 'vispy.util.tests',
         'vispy.util.dataio', 'vispy.util.geometry'
     ],
-    ext_modules=cythonize([op.join('vispy', 'scene', 'visuals', 'text', '_sdf.pyx'),
-                           ]),
+    cmdclass=dict(build_ext=build_ext),
+    ext_modules=extensions,
+    include_dirs=[np.get_include()],
     package_dir={
         'vispy': 'vispy'},
     package_data={

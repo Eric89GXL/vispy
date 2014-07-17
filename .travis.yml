@@ -64,9 +64,9 @@ install:
     - if [ "${PYTHON}" != "2.7" ]; then
         conda create -n testenv --yes --quiet pip python=$PYTHON;
         source activate testenv;
-        conda install --yes --quiet numpy nose;
+        conda install --yes --quiet numpy nose cython;
       else
-        travis_retry sudo apt-get -qq -y install python-numpy python-nose python-setuptools;
+        travis_retry sudo apt-get -qq -y install python-numpy python-nose python-setuptools cython;
       fi;
     - pip install -q coveralls nose-timer
     # Dont install flake8 on 2.6 to make sure tests still run without it
@@ -112,8 +112,9 @@ install:
 
     # Install vispy
     - cd ${SRC_DIR}
-    - python setup.py build
+    - make inplace
     - python setup.py install
+    - ls -al vispy/scene/visuals/text/
     - cd ~
 
     # GLFW: version 2 shouldn't work (so let's try on Py2.6), version 3 will

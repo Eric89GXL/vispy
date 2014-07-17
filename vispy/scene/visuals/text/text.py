@@ -31,29 +31,30 @@ class TextureFont(object):
     def __init__(self, font, atlas):
         self._atlas = atlas
         self._font = deepcopy(font)
-        self._font['size'] = 512  # use high resolution for SDF
-        self._lowres_size = 64  # end at this resolution for storage
+        self._font['size'] = 512  # use high resolution point size for SDF
+        self._lowres_size = 64  # end at this point size for storage
+        self._spread = 10  # spread/border at the high-res for SDF calculation
         self._glyphs = {}
 
     @property
     def ratio(self):
+        """Ratio of the initial high-res to final stored low-res glyph"""
         return self._lowres_size / float(self._font['size'])
+
+    @property
+    def slop(self):
+        """Extra space along each glyph edge due to SDF borders"""
+        return (self.ratio * self._spread)
 
     def __getitem__(self, char):
         if not (isinstance(char, string_types) and len(char) == 1):
             raise TypeError('index must be a 1-character string')
         if char not in self._glyphs:
             self._load_char(char)
-            # adjust values to lowres size
-            glyph = self._glyphs[char]
-            glyph['offset'] = [g * self.ratio for g in glyph['offset']]
-            for key in glyph['kerning'].keys():
-                glyph['kerning'][key] *= self.ratio
-            glyph['advance'] *= self.ratio
         return self._glyphs[char]
 
     def _load_char(self, char):
-        """Build a glyph corresponding to an individual character
+        """Build and store a glyph corresponding to an individual character
 
         Parameters:
         -----------
@@ -69,13 +70,16 @@ class TextureFont(object):
         bitmap = glyph['bitmap']
 
         # convert to padded double array
-        sdf = _get_sdf(glyph['bitmap'])
+        sdf = _get_sdf(glyph['bitmap'], spread=self._spread)
 
         # scale down for storage
         h, w = sdf.shape
-        h_idx = np.linspace(0, h - 1, int(round(h*self.ratio))).astype(int)
         w_idx = np.linspace(0, w - 1, int(round(w*self.ratio))).astype(int)
-        bitmap = sdf[h_idx][:, w_idx]
+        bitmap = np.array([np.interp(w_idx, np.arange(w), ss)
+                          for ss in sdf])
+        h_idx = np.linspace(0, h - 1, int(round(h*self.ratio)))
+        bitmap = np.array([np.interp(h_idx, np.arange(h), ss)
+                          for ss in bitmap.T]).T
         height, width = bitmap.shape
 
         # Store
@@ -159,64 +163,70 @@ void main()
 """
 
 
-def _text_to_vbo(text, font, anchor_x='center', anchor_y='center'):
-    """Convert text characters to VertexBuffer"""
-    text_vtype = np.dtype([('a_position', 'f4', 2),
-                           ('a_texcoord', 'f4', 2)])
-    vertices = np.zeros(len(text) * 4, dtype=text_vtype)
-    prev = None
-    x = y = width = height = ascender = descender = 0
-    for ii, char in enumerate(text):
-        glyph = font[char]
-        kerning = glyph['kerning'].get(prev, 0.)
-        x0 = x + glyph['offset'][0] + kerning
-        y0 = y + glyph['offset'][1]
-        x1 = x0 + glyph['size'][0]
-        y1 = y0 - glyph['size'][1]
-        u0, v0, u1, v1 = glyph['texcoords']
-        position = [[x0, y0], [x0, y1], [x1, y1], [x1, y0]]
-        texcoords = [[u0, v0], [u0, v1], [u1, v1], [u1, v0]]
-        vi = ii * 4
-        vertices['a_position'][vi:vi+4] = position
-        vertices['a_texcoord'][vi:vi+4] = texcoords
-        x += glyph['advance'] + kerning
-        ascender = max(ascender, y0)
-        descender = min(ascender, y1)
-        width += glyph['advance'] + kerning
-        height = max(height, glyph['size'][1])
-        prev = char
-
-    # Tight bounding box (loose would be width, font.height/.ascender/.desc)
-    width -= glyph['advance'] - glyph['size'][0]
-    dx = dy = 0
-    if anchor_y == 'top':
-        dy = -ascender
-    elif anchor_y == 'center':
-        dy = -(height / 2 + descender)
-    elif anchor_y == 'bottom':
-        dy = -descender
-    if anchor_x == 'right':
-        dx = -width / 1.
-    elif anchor_x == 'center':
-        dx = -width / 2.
-    vertices['a_position'] += (dx, dy)
-    return VertexBuffer(vertices)
-
-
 class Text(object):
     def __init__(self, text, color=(0., 0., 0., 1.), bold=False,
                  italic=False, face='Arial',
                  anchor_x='center', anchor_y='center'):
         assert isinstance(text, string_types)
+        assert len(text) > 0  # XXX TODO: should fix this simple corner case
+        assert anchor_y in ('top', 'center', 'middle', 'bottom')
+        assert anchor_x in ('left', 'center', 'right')
         self._font_manager = FontManager()
         self._program = Program(text_vert, text_frag)
-        font = self._font_manager.get_font(face, bold, italic)
-        self._program.bind(_text_to_vbo(text, font, anchor_x, anchor_y))
+        self._program.bind(self._text_to_vbo(text, face, bold, italic,
+                                             anchor_x, anchor_y))
         self._program['u_color'] = color
         self._program['u_font_atlas'] = self._font_manager.atlas
         idx = (np.array([0, 1, 2, 0, 2, 3], np.uint32) +
                np.arange(0, 4*len(text), 4, dtype=np.uint32)[:, np.newaxis])
         self._ib = IndexBuffer(idx.ravel())
+
+    def _text_to_vbo(self, text, face, bold, italic, anchor_x, anchor_y):
+        """Convert text characters to VertexBuffer"""
+        font = self._font_manager.get_font(face, bold, italic)
+        text_vtype = np.dtype([('a_position', 'f4', 2),
+                               ('a_texcoord', 'f4', 2)])
+        vertices = np.zeros(len(text) * 4, dtype=text_vtype)
+        prev = None
+        width = height = ascender = descender = 0
+        ratio, slop = font.ratio, font.slop
+        x_off = -slop
+        for ii, char in enumerate(text):
+            glyph = font[char]
+            kerning = glyph['kerning'].get(prev, 0.) * ratio
+            x0 = x_off + glyph['offset'][0] * ratio + kerning
+            y0 = glyph['offset'][1] * ratio + slop
+            x1 = x0 + glyph['size'][0]
+            y1 = y0 - glyph['size'][1]
+            u0, v0, u1, v1 = glyph['texcoords']
+            position = [[x0, y0], [x0, y1], [x1, y1], [x1, y0]]
+            texcoords = [[u0, v0], [u0, v1], [u1, v1], [u1, v0]]
+            vi = ii * 4
+            vertices['a_position'][vi:vi+4] = position
+            vertices['a_texcoord'][vi:vi+4] = texcoords
+            x_move = glyph['advance'] * ratio + kerning
+            x_off += x_move
+            ascender = max(ascender, y0 - slop)
+            descender = min(descender, y1 + slop)
+            width += x_move
+            height = max(height, glyph['size'][1] - 2*slop)
+            prev = char
+
+        # Tight bounding box (loose would be width, font.height /.asc / .desc)
+        width -= glyph['advance'] * ratio - (glyph['size'][0] - 2*slop)
+        dx = dy = 0
+        if anchor_y == 'top':
+            dy = -ascender
+        elif anchor_y in ('center', 'middle'):
+            dy = -(height / 2 + descender)
+        elif anchor_y == 'bottom':
+            dy = -descender
+        if anchor_x == 'right':
+            dx = -width
+        elif anchor_x == 'center':
+            dx = -width / 2.
+        vertices['a_position'] += (dx, dy)
+        return VertexBuffer(vertices)
 
     def draw(self):
         set_state(blend=True, depth_test=False,

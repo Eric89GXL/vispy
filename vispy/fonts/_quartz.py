@@ -83,12 +83,11 @@ def _load_glyph(f, char, glyphs_dict):
     rect = ct.CTFontGetBoundingRectsForGlyphs(font, 0, glyphs, None, 1)
     # Get advance for all glyphs in string.
     advance = ct.CTFontGetAdvancesForGlyphs(font, 1, glyphs, None, 1)
-    advance = advance
     width = max(int(np.ceil(rect.size.width) + 1), 1)
     height = max(int(np.ceil(rect.size.height) + 1), 1)
 
     left = rect.origin.x
-    baseline = rect.origin.y
+    baseline = -rect.origin.y
     top = height - baseline
 
     bits_per_component = 8
