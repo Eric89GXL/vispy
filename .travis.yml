@@ -114,7 +114,6 @@ install:
     - cd ${SRC_DIR}
     - make inplace
     - python setup.py install
-    - ls -al vispy/scene/visuals/text/
     - cd ~
 
     # GLFW: version 2 shouldn't work (so let's try on Py2.6), version 3 will
