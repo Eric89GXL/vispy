@@ -2,7 +2,8 @@ import numpy as np
 from nose.tools import assert_true, assert_equal
 import warnings
 
-from vispy.fonts import list_fonts, _load_glyph
+from vispy.testing import assert_in
+from vispy.fonts import list_fonts, _load_glyph, _vispy_fonts
 
 warnings.simplefilter('always')
 
@@ -11,16 +12,16 @@ def test_font_list():
     """Test font listing"""
     f = list_fonts()
     assert_true(len(f) > 0)
+    for font in _vispy_fonts:
+        assert_in(font, f)
 
 
 def test_font_glyph():
     """Test loading glyphs"""
-    font_dict = dict(face='Arial', size=12, bold=True, italic=True)
+    font_dict = dict(face='OpenSans', size=12, bold=False, italic=False)
     glyphs_dict = dict()
     chars = 'foobar^C&#'
     for char in chars:
         # Warning that Arial might not exist
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter('always')
-            _load_glyph(font_dict, char, glyphs_dict)
+        _load_glyph(font_dict, char, glyphs_dict)
     assert_equal(len(glyphs_dict), np.unique([c for c in chars]).size)

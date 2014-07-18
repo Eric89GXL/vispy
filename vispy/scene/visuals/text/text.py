@@ -165,7 +165,7 @@ void main()
 
 class Text(object):
     def __init__(self, text, color=(0., 0., 0., 1.), bold=False,
-                 italic=False, face='Arial',
+                 italic=False, face='OpenSans',
                  anchor_x='center', anchor_y='center'):
         assert isinstance(text, string_types)
         assert len(text) > 0  # XXX TODO: should fix this simple corner case

@@ -7,7 +7,7 @@ from vispy.scene.visuals import Text
 
 class Canvas(app.Canvas):
     def __init__(self, **kwarg):
-        self.text = Text('Hello world!', face='Arial', bold=True)
+        self.text = Text('Hello world!', bold=True)
         app.Canvas.__init__(self, close_keys='escape', title='Glyphs', **kwarg)
 
     def on_draw(self, event):

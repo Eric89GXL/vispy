@@ -82,14 +82,13 @@ fontconfig.FcFontSort.argtypes = [c_void_p, c_void_p, c_bool,
 fontconfig.FcConfigGetCurrent.restype = c_void_p
 
 
-def find_font(face, size, bold, italic):
+def find_font(face, bold, italic):
     """Find font"""
     bold = FC_WEIGHT_BOLD if bold else FC_WEIGHT_REGULAR
     italic = FC_SLANT_ITALIC if italic else FC_SLANT_ROMAN
     face = face.encode('utf8')
     fontconfig.FcInit()
     pattern = fontconfig.FcPatternCreate()
-    fontconfig.FcPatternAddDouble(pattern, FC_SIZE, c_double(size))
     fontconfig.FcPatternAddInteger(pattern, FC_WEIGHT, bold)
     fontconfig.FcPatternAddInteger(pattern, FC_SLANT, italic)
     fontconfig.FcPatternAddString(pattern, FC_FAMILY, face)
@@ -112,9 +111,9 @@ def find_font(face, size, bold, italic):
     return fname
 
 
-def list_fonts():
+def _list_fonts():
     """List system fonts"""
     stdout_, stderr = run_subprocess(['fc-list', ':', 'family'])
     vals = stdout_.decode('utf-8').strip().split('\n')
     vals = [v.split(',')[0] for v in vals]
-    return sorted(vals, key=lambda s: s.lower())
+    return vals

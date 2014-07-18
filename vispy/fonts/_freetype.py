@@ -14,6 +14,7 @@ from ..ext.freetype import (FT_LOAD_RENDER, FT_LOAD_NO_HINTING,
 
 
 # Convert face to filename
+from ._vispy_fonts import _vispy_fonts, _get_vispy_font_filename
 if sys.platform.startswith('linux'):
     from ..ext.fontconfig import find_font
 elif sys.platform.startswith('win'):
@@ -24,11 +25,14 @@ else:
 _font_dict = {}
 
 
-def _load_font(face, size, bold, italic):
-    key = '%s-%s-%s-%s' % (face, size, bold, italic)
+def _load_font(face, bold, italic):
+    key = '%s-%s-%s' % (face, bold, italic)
     if key in _font_dict:
         return _font_dict[key]
-    fname = find_font(face, size, bold, italic)
+    if face in _vispy_fonts:
+        fname = _get_vispy_font_filename(face, bold, italic)
+    else:
+        fname = find_font(face, bold, italic)
     font = Face(fname)
     _font_dict[key] = font
     return font
@@ -37,7 +41,7 @@ def _load_font(face, size, bold, italic):
 def _load_glyph(f, char, glyphs_dict):
     """Load glyph from font into dict"""
     flags = FT_LOAD_RENDER | FT_LOAD_NO_HINTING | FT_LOAD_NO_AUTOHINT
-    face = _load_font(f['face'], f['size'], f['bold'], f['italic'])
+    face = _load_font(f['face'], f['bold'], f['italic'])
     face.set_char_size(f['size'] * 64)
     # get the character of interest
     face.load_char(char, flags)

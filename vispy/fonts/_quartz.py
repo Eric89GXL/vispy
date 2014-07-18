@@ -7,21 +7,43 @@
 # Use OSX cocoa/quartz to get glyph bitmaps
 
 import numpy as np
-from ctypes import c_void_p, byref, c_int32, c_byte
+from ctypes import byref, c_int32, c_byte
 
 from ..ext.cocoapy import cf, ct, quartz, CFRange, CFSTR, CGGlyph, UniChar, \
     kCTFontFamilyNameAttribute, kCTFontBoldTrait, kCTFontItalicTrait, \
     kCTFontSymbolicTrait, kCTFontTraitsAttribute, kCTFontAttributeName, \
     kCGImageAlphaPremultipliedLast, kCFNumberSInt32Type, ObjCClass
-
+from ._vispy_fonts import _vispy_fonts, _get_vispy_font_filename
 
 _font_dict = {}
 
 
-def _load_font(face, size, bold, italic):
-    key = '%s-%s-%s-%s' % (face, size, bold, italic)
+def _load_vispy_font(face, bold, italic):
+    # http://stackoverflow.com/questions/2703085/
+    # how-can-you-load-a-font-ttf-from-a-file-using-core-text
+    fname = _get_vispy_font_filename(face, bold, italic)
+    url = cf.CFURLCreateWithFileSystemPath(None, CFSTR(fname), 0, False)
+    # data_provider = quartz.CGDataProviderCreateWithURL(url)
+    # cg_font = quartz.CGFontCreateWithDataProvider(data_provider)
+    # font = ct.CTFontCreateWithGraphicsFont(cg_font, 12., None, None)
+    array = ct.CTFontManagerCreateFontDescriptorsFromURL(url)
+    desc = cf.CFArrayGetValueAtIndex(array, 0)
+    font = ct.CTFontCreateWithFontDescriptor(desc, 12., None)
+    cf.CFRelease(array)
+    cf.CFRelease(url)
+    if not font:
+        raise RuntimeError("Couldn't load font: %s" % face)
+    key = '%s-%s-%s' % (face, bold, italic)
+    _font_dict[key] = font
+    return font
+
+
+def _load_font(face, bold, italic):
+    key = '%s-%s-%s' % (face, bold, italic)
     if key in _font_dict:
         return _font_dict[key]
+    if face in _vispy_fonts:
+        return _load_vispy_font(face, bold, italic)
     traits = 0
     traits |= kCTFontBoldTrait if bold else 0
     traits |= kCTFontItalicTrait if italic else 0
@@ -30,20 +52,19 @@ def _load_font(face, size, bold, italic):
     # Create an attribute dictionary.
     args = [None, 0, cf.kCFTypeDictionaryKeyCallBacks,
             cf.kCFTypeDictionaryValueCallBacks]
-    attributes = c_void_p(cf.CFDictionaryCreateMutable(*args))
+    attributes = cf.CFDictionaryCreateMutable(*args)
     # Add family name to attributes.
     cfname = CFSTR(face)
     cf.CFDictionaryAddValue(attributes, kCTFontFamilyNameAttribute, cfname)
     cf.CFRelease(cfname)
     # Construct a CFNumber to represent the traits.
     itraits = c_int32(traits)
-    sym_traits = c_void_p(cf.CFNumberCreate(None, kCFNumberSInt32Type,
-                                            byref(itraits)))
+    sym_traits = cf.CFNumberCreate(None, kCFNumberSInt32Type, byref(itraits))
     if sym_traits:
         # Construct a dictionary to hold the traits values.
         args = [None, 0, cf.kCFTypeDictionaryKeyCallBacks,
                 cf.kCFTypeDictionaryValueCallBacks]
-        traits_dict = c_void_p(cf.CFDictionaryCreateMutable(*args))
+        traits_dict = cf.CFDictionaryCreateMutable(*args)
         if traits_dict:
             # Add CFNumber traits to traits dictionary.
             cf.CFDictionaryAddValue(traits_dict, kCTFontSymbolicTrait,
@@ -54,26 +75,35 @@ def _load_font(face, size, bold, italic):
             cf.CFRelease(traits_dict)
         cf.CFRelease(sym_traits)
     # Create font descriptor with attributes.
-    desc = c_void_p(ct.CTFontDescriptorCreateWithAttributes(attributes))
+    desc = ct.CTFontDescriptorCreateWithAttributes(attributes)
     cf.CFRelease(attributes)
-    font = c_void_p(ct.CTFontCreateWithFontDescriptor(desc, size, None))
+    font = ct.CTFontCreateWithFontDescriptor(desc, 12., None)
     if not font:
-        raise RuntimeError("Couldn't load font: %s" % face.decode('utf-8'))
+        raise RuntimeError("Couldn't load font: %s" % face)
     _font_dict[key] = font
     return font
 
 
 def _load_glyph(f, char, glyphs_dict):
-    font = _load_font(**f)
+    font = _load_font(f['face'], f['bold'], f['italic'])
+    # resize loaded font
+    args = [None, 0, cf.kCFTypeDictionaryKeyCallBacks,
+            cf.kCFTypeDictionaryValueCallBacks]
+    attributes = cf.CFDictionaryCreateMutable(*args)
+    desc = ct.CTFontDescriptorCreateWithAttributes(attributes)
+    cf.CFRelease(attributes)
+    font = ct.CTFontCreateCopyWithAttributes(font, f['size'], None, desc)
+    cf.CFRelease(desc)
+    if not font:
+        raise RuntimeError("Couldn't load font")
     # Create an attributed string using text and font.
     args = [None, 1, cf.kCFTypeDictionaryKeyCallBacks,
             cf.kCFTypeDictionaryValueCallBacks]
-    attributes = c_void_p(cf.CFDictionaryCreateMutable(*args))
+    attributes = cf.CFDictionaryCreateMutable(*args)
     cf.CFDictionaryAddValue(attributes, kCTFontAttributeName, font)
-    string = c_void_p(cf.CFAttributedStringCreate(None, CFSTR(char),
-                                                  attributes))
+    string = cf.CFAttributedStringCreate(None, CFSTR(char), attributes)
     # Create a CTLine object to render the string.
-    line = c_void_p(ct.CTLineCreateWithAttributedString(string))
+    line = ct.CTLineCreateWithAttributedString(string)
     cf.CFRelease(string)
     cf.CFRelease(attributes)
     # Get a bounding rectangle for glyphs in string.
@@ -92,20 +122,20 @@ def _load_glyph(f, char, glyphs_dict):
 
     bits_per_component = 8
     bytes_per_row = 4*width
-    color_space = c_void_p(quartz.CGColorSpaceCreateDeviceRGB())
+    color_space = quartz.CGColorSpaceCreateDeviceRGB()
     args = [None, width, height, bits_per_component, bytes_per_row,
             color_space, kCGImageAlphaPremultipliedLast]
-    bitmap = c_void_p(quartz.CGBitmapContextCreate(*args))
+    bitmap = quartz.CGBitmapContextCreate(*args)
     # Draw text to bitmap context.
     quartz.CGContextSetShouldAntialias(bitmap, True)
     quartz.CGContextSetTextPosition(bitmap, -left, baseline)
     ct.CTLineDraw(line, bitmap)
     cf.CFRelease(line)
     # Create an image to get the data out.
-    image_ref = c_void_p(quartz.CGBitmapContextCreateImage(bitmap))
+    image_ref = quartz.CGBitmapContextCreateImage(bitmap)
     assert quartz.CGImageGetBytesPerRow(image_ref) == bytes_per_row
-    data_provider = c_void_p(quartz.CGImageGetDataProvider(image_ref))
-    image_data = c_void_p(quartz.CGDataProviderCopyData(data_provider))
+    data_provider = quartz.CGImageGetDataProvider(image_ref)
+    image_data = quartz.CGDataProviderCopyData(data_provider)
     buffer_size = cf.CFDataGetLength(image_data)
     assert buffer_size == width * height * 4
     buffer = (c_byte * buffer_size)()
@@ -129,6 +159,7 @@ def _load_glyph(f, char, glyphs_dict):
                                         other_glyph['advance'])
         other_glyph['kerning'][char] = (_get_k_p_a(font, char, other_char) -
                                         glyph['advance'])
+    cf.CFRelease(font)
 
 
 def _get_k_p_a(font, left, right):
@@ -138,10 +169,9 @@ def _get_k_p_a(font, left, right):
     chars = left + right
     args = [None, 1, cf.kCFTypeDictionaryKeyCallBacks,
             cf.kCFTypeDictionaryValueCallBacks]
-    attributes = c_void_p(cf.CFDictionaryCreateMutable(*args))
+    attributes = cf.CFDictionaryCreateMutable(*args)
     cf.CFDictionaryAddValue(attributes, kCTFontAttributeName, font)
-    string = c_void_p(cf.CFAttributedStringCreate(None, CFSTR(chars),
-                                                  attributes))
+    string = cf.CFAttributedStringCreate(None, CFSTR(chars), attributes)
     typesetter = ct.CTTypesetterCreateWithAttributedString(string)
     cf.CFRelease(string)
     cf.CFRelease(attributes)
@@ -155,10 +185,9 @@ def _get_k_p_a(font, left, right):
     return offset
 
 
-def list_fonts():
+def _list_fonts():
     manager = ObjCClass('NSFontManager').sharedFontManager()
     avail = manager.availableFontFamilies()
     fonts = [avail.objectAtIndex_(ii).UTF8String()
              for ii in range(avail.count())]
-    fonts = sorted(fonts, key=lambda f: f.lower())
     return fonts

@@ -945,6 +945,10 @@ cf.CFStringGetTypeID.argtypes = []
 cf.CFAttributedStringCreate.restype = c_void_p
 cf.CFAttributedStringCreate.argtypes = [CFAllocatorRef, c_void_p, c_void_p]
 
+cf.CFURLCreateWithFileSystemPath.restype = c_void_p
+cf.CFURLCreateWithFileSystemPath.argtypes = [CFAllocatorRef, c_void_p,
+                                             CFIndex, c_bool]
+
 
 def CFSTR(string):
     args = [None, string.encode('utf8'), kCFStringEncodingUTF8]
@@ -1101,6 +1105,9 @@ cf.CFRunLoopGetCurrent.argtypes = []
 
 cf.CFRunLoopGetMain.restype = c_void_p
 cf.CFRunLoopGetMain.argtypes = []
+
+cf.CFShow.restype = None
+cf.CFShow.argtypes = [c_void_p]
 
 ######################################################################
 
@@ -1404,6 +1411,12 @@ quartz.CGContextSetTextPosition.argtypes = [c_void_p, CGFloat, CGFloat]
 quartz.CGContextSetShouldAntialias.restype = None
 quartz.CGContextSetShouldAntialias.argtypes = [c_void_p, c_bool]
 
+quartz.CGDataProviderCreateWithURL.restype = c_void_p
+quartz.CGDataProviderCreateWithURL.argtypes = [c_void_p]
+
+quartz.CGFontCreateWithDataProvider.restype = c_void_p
+quartz.CGFontCreateWithDataProvider.argtypes = [c_void_p]
+
 ######################################################################
 
 # CORETEXT
@@ -1452,8 +1465,8 @@ ct.CTFontGetGlyphsForCharacters.argtypes = [
     c_void_p, POINTER(UniChar), POINTER(CGGlyph), CFIndex]
 
 ct.CTFontCreateWithGraphicsFont.restype = c_void_p
-ct.CTFontCreateWithGraphicsFont.argtypes = [
-    c_void_p, CGFloat, c_void_p, c_void_p]
+ct.CTFontCreateWithGraphicsFont.argtypes = [c_void_p, CGFloat, c_void_p,
+                                            c_void_p]
 
 ct.CTFontCopyFamilyName.restype = c_void_p
 ct.CTFontCopyFamilyName.argtypes = [c_void_p]
@@ -1463,6 +1476,10 @@ ct.CTFontCopyFullName.argtypes = [c_void_p]
 
 ct.CTFontCreateWithFontDescriptor.restype = c_void_p
 ct.CTFontCreateWithFontDescriptor.argtypes = [c_void_p, CGFloat, c_void_p]
+
+ct.CTFontCreateCopyWithAttributes.restype = c_void_p
+ct.CTFontCreateCopyWithAttributes.argtypes = [c_void_p, CGFloat, c_void_p,
+                                              c_void_p]
 
 ct.CTFontDescriptorCreateWithAttributes.restype = c_void_p
 ct.CTFontDescriptorCreateWithAttributes.argtypes = [c_void_p]
@@ -1476,6 +1493,9 @@ ct.CTTypesetterCreateLine.argtypes = [c_void_p, CFRange]
 ct.CTLineGetOffsetForStringIndex.restype = CGFloat
 ct.CTLineGetOffsetForStringIndex.argtypes = [c_void_p, CFIndex,
                                              POINTER(CGFloat)]
+
+ct.CTFontManagerCreateFontDescriptorsFromURL.restype = c_void_p
+ct.CTFontManagerCreateFontDescriptorsFromURL.argtypes = [c_void_p]
 
 ######################################################################
 

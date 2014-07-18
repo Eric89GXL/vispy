@@ -5,3 +5,4 @@
 # -----------------------------------------------------------------------------
 
 from ._triage import _load_glyph, list_fonts  # noqa, analysis:ignore
+from ._vispy_fonts import _vispy_fonts  # noqa, analysis:ignore
