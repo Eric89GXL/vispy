@@ -198,7 +198,9 @@ class Text(Visual):
 
         void main(void) {
             vec4 color = v_color;
-            float distance = texture2D(u_font_atlas, v_texcoord.xy);
+            vec2 uv = v_texcoord.xy;
+            vec4 rgb = texture2D(u_font_atlas, uv);
+            float distance = rgb.r;
             float width = fwidth(distance);
             float alpha = smoothstep(0.5 - width, 0.5 + width, distance);
             gl_FragColor = vec4(color.rgb, color.a * alpha);
