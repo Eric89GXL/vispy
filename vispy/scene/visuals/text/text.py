@@ -33,7 +33,7 @@ class TextureFont(object):
         self._font = deepcopy(font)
         self._font['size'] = 512  # use high resolution point size for SDF
         self._lowres_size = 64  # end at this point size for storage
-        self._spread = 10  # spread/border at the high-res for SDF calculation
+        self._spread = 32  # spread/border at the high-res for SDF calculation
         self._glyphs = {}
 
     @property
@@ -74,12 +74,12 @@ class TextureFont(object):
 
         # scale down for storage
         h, w = sdf.shape
-        w_idx = np.linspace(0, w - 1, int(round(w*self.ratio))).astype(int)
-        bitmap = np.array([np.interp(w_idx, np.arange(w), ss)
-                          for ss in sdf])
-        h_idx = np.linspace(0, h - 1, int(round(h*self.ratio)))
-        bitmap = np.array([np.interp(h_idx, np.arange(h), ss)
-                          for ss in bitmap.T]).T
+        xp = (np.arange(w) + 0.5) / float(w)
+        x = (np.arange(int(round(w*self.ratio))) + 0.5) / round(w*self.ratio)
+        bitmap = np.array([np.interp(x, xp, ss) for ss in sdf])
+        xp = (np.arange(h) + 0.5) / h
+        x = (np.arange(int(round(h*self.ratio))) + 0.5) / round(h*self.ratio)
+        bitmap = np.array([np.interp(x, xp, ss) for ss in bitmap.T]).T
         height, width = bitmap.shape
 
         # Store

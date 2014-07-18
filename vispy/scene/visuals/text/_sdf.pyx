@@ -18,8 +18,8 @@ ctypedef np.complex64_t DTYPE_ct
 cdef DTYPE_ct MAX_VAL = (1e6 + 1e6j)
 
 
-def _get_sdf(data, spread=25):
-    """_get_sdf(data, spread=25)
+def _get_sdf(data, spread=32):
+    """_get_sdf(data, spread=32)
 
     Calculate the distance field for a set of data.
 
