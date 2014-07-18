@@ -32,8 +32,8 @@ class TextureFont(object):
     def __init__(self, font, atlas):
         self._atlas = atlas
         self._font = deepcopy(font)
-        self._font['size'] = 512  # use high resolution point size for SDF
-        self._lowres_size = 64  # end at this point size for storage
+        self._font['size'] = 572  # use high resolution point size for SDF
+        self._lowres_size = 72  # end at this point size for storage
         self._spread = 32  # spread/border at the high-res for SDF calculation
         self._glyphs = {}
 
@@ -116,7 +116,7 @@ class FontManager(object):
 # The visual
 
 
-def _text_to_vbo(text, font, anchor_x, anchor_y):
+def _text_to_vbo(text, font, anchor_x, anchor_y, lowres_size):
     """Convert text characters to VBO"""
     text_vtype = np.dtype([('a_position', 'f4', 2),
                            ('a_texcoord', 'f4', 2)])
@@ -160,6 +160,7 @@ def _text_to_vbo(text, font, anchor_x, anchor_y):
     elif anchor_x == 'center':
         dx = -width / 2.
     vertices['a_position'] += (dx, dy)
+    vertices['a_position'] /= lowres_size
     return VertexBuffer(vertices)
 
 
@@ -215,7 +216,8 @@ class Text(Visual):
         font = self._font_manager.get_font(face, bold, italic)
         self._program = ModularProgram(self.VERTEX_SHADER,
                                        self.FRAGMENT_SHADER)
-        self._vertices = _text_to_vbo(text, font, anchor_x, anchor_y)
+        self._vertices = _text_to_vbo(text, font, anchor_x, anchor_y,
+                                      font._lowres_size)
         self._color = color
         idx = (np.array([0, 1, 2, 0, 2, 3], np.uint32) +
                np.arange(0, 4*len(text), 4, dtype=np.uint32)[:, np.newaxis])
