@@ -17,4 +17,4 @@ def _get_vispy_font_filename(face, bold, italic):
     name += 'Bold' if bold else ''
     name += 'Italic' if italic else ''
     name += '.ttf'
-    return get_data_file('fonts/%s' % name)
+    return get_data_file('fonts/%s' % name).encode('utf-8')
