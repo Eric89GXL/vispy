@@ -11,11 +11,12 @@ import numpy as np
 from copy import deepcopy
 
 from ._sdf import _get_sdf
-from ....gloo import (TextureAtlas, set_state, get_parameter,
-                      Program, IndexBuffer, VertexBuffer)
+from ....gloo import (TextureAtlas, set_state,
+                      IndexBuffer, VertexBuffer)
 from ....ext.six import string_types
-from ....util.transforms import ortho
 from ....fonts import _load_glyph
+from ...shaders import ModularProgram
+from ..visual import Visual
 
 
 class TextureFont(object):
@@ -114,125 +115,125 @@ class FontManager(object):
 ##############################################################################
 # The visual
 
-text_vert = """
-// Uniforms
-uniform mat4      transform;
-uniform sampler2D u_font_atlas;
-uniform vec4      u_color;
 
-// Attributes
-attribute vec2  a_position;
-attribute vec2  a_texcoord;
+def _text_to_vbo(text, font, anchor_x, anchor_y):
+    """Convert text characters to VBO"""
+    text_vtype = np.dtype([('a_position', 'f4', 2),
+                           ('a_texcoord', 'f4', 2)])
+    vertices = np.zeros(len(text) * 4, dtype=text_vtype)
+    prev = None
+    width = height = ascender = descender = 0
+    ratio, slop = font.ratio, font.slop
+    x_off = -slop
+    for ii, char in enumerate(text):
+        glyph = font[char]
+        kerning = glyph['kerning'].get(prev, 0.) * ratio
+        x0 = x_off + glyph['offset'][0] * ratio + kerning
+        y0 = glyph['offset'][1] * ratio + slop
+        x1 = x0 + glyph['size'][0]
+        y1 = y0 - glyph['size'][1]
+        u0, v0, u1, v1 = glyph['texcoords']
+        position = [[x0, y0], [x0, y1], [x1, y1], [x1, y0]]
+        texcoords = [[u0, v0], [u0, v1], [u1, v1], [u1, v0]]
+        vi = ii * 4
+        vertices['a_position'][vi:vi+4] = position
+        vertices['a_texcoord'][vi:vi+4] = texcoords
+        x_move = glyph['advance'] * ratio + kerning
+        x_off += x_move
+        ascender = max(ascender, y0 - slop)
+        descender = min(descender, y1 + slop)
+        width += x_move
+        height = max(height, glyph['size'][1] - 2*slop)
+        prev = char
 
-// Varying
-varying vec2  v_texcoord;
-varying vec4  v_color;
-
-void main()
-{
-    v_color = u_color;
-    gl_Position = transform * vec4(a_position, 0.0, 1.0);
-    v_texcoord = a_texcoord;
-}
-"""
-
-text_frag = """
-// Uniforms
-uniform mat4      u_P;
-uniform sampler2D u_font_atlas;
-uniform vec4      u_color;
-
-// Varying
-varying vec2  v_texcoord;
-varying vec4  v_color;
-
-const float smooth_center = 0.5;
-
-void main()
-{
-    vec4 color = v_color;
-    vec2 uv = v_texcoord.xy;
-    vec4 rgb = texture2D(u_font_atlas, uv);
-
-    float distance = rgb.r;
-    float smooth_width = fwidth(distance);
-    float alpha = smoothstep(smooth_center - smooth_width,
-                             smooth_center + smooth_width, distance);
-    gl_FragColor = vec4(color.rgb, color.a * alpha);
-}
-"""
+    # Tight bounding box (loose would be width, font.height /.asc / .desc)
+    width -= glyph['advance'] * ratio - (glyph['size'][0] - 2*slop)
+    dx = dy = 0
+    if anchor_y == 'top':
+        dy = -ascender
+    elif anchor_y in ('center', 'middle'):
+        dy = -(height / 2 + descender)
+    elif anchor_y == 'bottom':
+        dy = -descender
+    if anchor_x == 'right':
+        dx = -width
+    elif anchor_x == 'center':
+        dx = -width / 2.
+    vertices['a_position'] += (dx, dy)
+    return VertexBuffer(vertices)
 
 
-class Text(object):
+class Text(Visual):
+    """Visual that displays text"""
+
+    VERTEX_SHADER = """
+        #version 120
+
+        vec4 transform(vec4);
+
+        uniform sampler2D u_font_atlas;
+        uniform vec4      u_color;
+
+        attribute vec2  a_position;
+        attribute vec2  a_texcoord;
+
+        varying vec2  v_texcoord;
+        varying vec4  v_color;
+
+        void main(void) {
+            v_color = u_color;
+            gl_Position = transform(vec4(a_position, 0.0, 1.0));
+            v_texcoord = a_texcoord;
+        }
+        """
+
+    FRAGMENT_SHADER = """
+        #version 120
+        uniform sampler2D u_font_atlas;
+        uniform vec4      u_color;
+
+        varying vec2  v_texcoord;
+        varying vec4  v_color;
+
+        void main(void) {
+            vec4 color = v_color;
+            float distance = texture2D(u_font_atlas, v_texcoord.xy);
+            float width = fwidth(distance);
+            float alpha = smoothstep(0.5 - width, 0.5 + width, distance);
+            gl_FragColor = vec4(color.rgb, color.a * alpha);
+        }
+        """
+
     def __init__(self, text, color=(0., 0., 0., 1.), bold=False,
                  italic=False, face='OpenSans',
                  anchor_x='center', anchor_y='center'):
         assert isinstance(text, string_types)
-        assert len(text) > 0  # XXX TODO: should fix this simple corner case
+        assert len(text) > 0
         assert anchor_y in ('top', 'center', 'middle', 'bottom')
         assert anchor_x in ('left', 'center', 'right')
         self._font_manager = FontManager()
-        self._program = Program(text_vert, text_frag)
-        self._program.bind(self._text_to_vbo(text, face, bold, italic,
-                                             anchor_x, anchor_y))
-        self._program['u_color'] = color
-        self._program['u_font_atlas'] = self._font_manager.atlas
+        font = self._font_manager.get_font(face, bold, italic)
+        self._program = ModularProgram(self.VERTEX_SHADER,
+                                       self.FRAGMENT_SHADER)
+        self._vertices = _text_to_vbo(text, font, anchor_x, anchor_y)
+        self._color = color
         idx = (np.array([0, 1, 2, 0, 2, 3], np.uint32) +
                np.arange(0, 4*len(text), 4, dtype=np.uint32)[:, np.newaxis])
         self._ib = IndexBuffer(idx.ravel())
 
-    def _text_to_vbo(self, text, face, bold, italic, anchor_x, anchor_y):
-        """Convert text characters to VertexBuffer"""
-        font = self._font_manager.get_font(face, bold, italic)
-        text_vtype = np.dtype([('a_position', 'f4', 2),
-                               ('a_texcoord', 'f4', 2)])
-        vertices = np.zeros(len(text) * 4, dtype=text_vtype)
-        prev = None
-        width = height = ascender = descender = 0
-        ratio, slop = font.ratio, font.slop
-        x_off = -slop
-        for ii, char in enumerate(text):
-            glyph = font[char]
-            kerning = glyph['kerning'].get(prev, 0.) * ratio
-            x0 = x_off + glyph['offset'][0] * ratio + kerning
-            y0 = glyph['offset'][1] * ratio + slop
-            x1 = x0 + glyph['size'][0]
-            y1 = y0 - glyph['size'][1]
-            u0, v0, u1, v1 = glyph['texcoords']
-            position = [[x0, y0], [x0, y1], [x1, y1], [x1, y0]]
-            texcoords = [[u0, v0], [u0, v1], [u1, v1], [u1, v0]]
-            vi = ii * 4
-            vertices['a_position'][vi:vi+4] = position
-            vertices['a_texcoord'][vi:vi+4] = texcoords
-            x_move = glyph['advance'] * ratio + kerning
-            x_off += x_move
-            ascender = max(ascender, y0 - slop)
-            descender = min(descender, y1 + slop)
-            width += x_move
-            height = max(height, glyph['size'][1] - 2*slop)
-            prev = char
-
-        # Tight bounding box (loose would be width, font.height /.asc / .desc)
-        width -= glyph['advance'] * ratio - (glyph['size'][0] - 2*slop)
-        dx = dy = 0
-        if anchor_y == 'top':
-            dy = -ascender
-        elif anchor_y in ('center', 'middle'):
-            dy = -(height / 2 + descender)
-        elif anchor_y == 'bottom':
-            dy = -descender
-        if anchor_x == 'right':
-            dx = -width
-        elif anchor_x == 'center':
-            dx = -width / 2.
-        vertices['a_position'] += (dx, dy)
-        return VertexBuffer(vertices)
-
-    def draw(self):
+    def set_options(self):
+        """Special function that is used to set the options. Automatically
+        called at initialization."""
         set_state(blend=True, depth_test=False,
                   blend_func=('src_alpha', 'one_minus_src_alpha'))
-        w, h = get_parameter('viewport')[2:]
-        dx, dy = w / 2., h / 2.
-        P = ortho(-dx, dx, -dy, dy, -1, 1)
-        self._program['transform'] = P
+
+    def draw(self):
+        # attributes / uniforms are not available until program is built
+        self._program.prepare()  # Force ModularProgram to set shaders
+        self._program['u_color'] = self._color
+        self._program['u_font_atlas'] = self._font_manager.atlas
+        self._program.bind(self._vertices)
+        # XXX Don't know why I need this to have it "take", but I do
+        set_state(blend=True, depth_test=False,
+                  blend_func=('src_alpha', 'one_minus_src_alpha'))
         self._program.draw('triangles', self._ib)
