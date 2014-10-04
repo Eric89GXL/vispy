@@ -10,11 +10,13 @@ import atexit
 from functools import partial
 import struct
 
-from ctypes import (windll, Structure, POINTER, byref, WINFUNCTYPE,
-                    c_uint, c_float, c_int, c_ulong, c_uint64,
-                    c_void_p, c_uint32, c_wchar, c_wchar_p)
+from ctypes import (windll, Structure, POINTER, byref, WINFUNCTYPE, cast,
+                    c_uint, c_float, c_int, c_ulong, c_uint64, c_short,
+                    c_void_p, c_uint32, c_wchar, c_wchar_p, c_char_p)
 from ctypes.wintypes import (LONG, BYTE, HFONT, HGDIOBJ, BOOL, UINT, INT,
-                             DWORD, LPARAM)
+                             DWORD, LPARAM, WPARAM, HMONITOR, HINSTANCE,
+                             HICON, HBRUSH, HANDLE, HWND, WORD, HMODULE,
+                             ATOM, LPVOID, HMENU, LPPOINT)
 
 try:
     import _winreg as winreg
@@ -56,6 +58,11 @@ TCHAR = c_wchar
 UINT32 = c_uint32
 HDC = c_void_p
 PSTR = c_uint64 if _64_bit else c_uint
+LRESULT = LPARAM
+HCURSOR = HANDLE
+WCHAR = BCHAR = c_wchar
+CCHDEVICENAME = 32
+CCHFORMNAME = 32
 
 HORZSIZE = 4
 VERTSIZE = 6
@@ -63,6 +70,9 @@ VERTSIZE = 6
 HORZRES = 8
 VERTRES = 10
 
+
+def MAKEINTRESOURCE(i):
+    return cast(c_void_p(i & 0xFFFF), c_wchar_p)
 
 # gdi32
 
@@ -73,6 +83,8 @@ class POINT(Structure):
 class RECT(Structure):
     _fields_ = [('left', LONG), ('top', LONG),
                 ('right', LONG), ('bottom', LONG)]
+
+LPRECT = POINTER(RECT)
 
 
 class PANOSE(Structure):
@@ -127,42 +139,179 @@ class LOGFONT(Structure):
         ('lfFaceName', (TCHAR * LF_FACESIZE))]
 
 
-gdi32 = windll.gdi32
+class MONITORINFOEX(Structure):
+    _fields_ = [
+        ('cbSize', DWORD),
+        ('rcMonitor', RECT),
+        ('rcWork', RECT),
+        ('dwFlags', DWORD),
+        ('szDevice', WCHAR * CCHDEVICENAME)
+    ]
+    __slots__ = [f[0] for f in _fields_]
 
-gdi32.CreateFontIndirectW.restype = HFONT
-gdi32.CreateFontIndirectW.argtypes = [POINTER(LOGFONT)]
 
-gdi32.SelectObject.restype = HGDIOBJ
-gdi32.SelectObject.argtypes = [HDC, HGDIOBJ]
+class DEVMODE(Structure):
+    _fields_ = [
+        ('dmDeviceName', BCHAR * CCHDEVICENAME),
+        ('dmSpecVersion', WORD),
+        ('dmDriverVersion', WORD),
+        ('dmSize', WORD),
+        ('dmDriverExtra', WORD),
+        ('dmFields', DWORD),
+        # Just using largest union member here
+        ('dmOrientation', c_short),
+        ('dmPaperSize', c_short),
+        ('dmPaperLength', c_short),
+        ('dmPaperWidth', c_short),
+        ('dmScale', c_short),
+        ('dmCopies', c_short),
+        ('dmDefaultSource', c_short),
+        ('dmPrintQuality', c_short),
+        # End union
+        ('dmColor', c_short),
+        ('dmDuplex', c_short),
+        ('dmYResolution', c_short),
+        ('dmTTOption', c_short),
+        ('dmCollate', c_short),
+        ('dmFormName', BCHAR * CCHFORMNAME),
+        ('dmLogPixels', WORD),
+        ('dmBitsPerPel', DWORD),
+        ('dmPelsWidth', DWORD),
+        ('dmPelsHeight', DWORD),
+        ('dmDisplayFlags', DWORD),  # union with dmNup
+        ('dmDisplayFrequency', DWORD),
+        ('dmICMMethod', DWORD),
+        ('dmICMIntent', DWORD),
+        ('dmDitherType', DWORD),
+        ('dmReserved1', DWORD),
+        ('dmReserved2', DWORD),
+        ('dmPanningWidth', DWORD),
+        ('dmPanningHeight', DWORD),
+    ]
 
-gdi32.SetGraphicsMode.restype = INT
-gdi32.SetGraphicsMode.argtypes = [HDC, INT]
 
-gdi32.GetTextMetricsW.restype = BOOL
-gdi32.GetTextMetricsW.argtypes = [HDC, POINTER(TEXTMETRIC)]
+class PIXELFORMATDESCRIPTOR(Structure):
+    _fields_ = [
+        ('nSize', WORD),
+        ('nVersion', WORD),
+        ('dwFlags', DWORD),
+        ('iPixelType', BYTE),
+        ('cColorBits', BYTE),
+        ('cRedBits', BYTE),
+        ('cRedShift', BYTE),
+        ('cGreenBits', BYTE),
+        ('cGreenShift', BYTE),
+        ('cBlueBits', BYTE),
+        ('cBlueShift', BYTE),
+        ('cAlphaBits', BYTE),
+        ('cAlphaShift', BYTE),
+        ('cAccumBits', BYTE),
+        ('cAccumRedBits', BYTE),
+        ('cAccumGreenBits', BYTE),
+        ('cAccumBlueBits', BYTE),
+        ('cAccumAlphaBits', BYTE),
+        ('cDepthBits', BYTE),
+        ('cStencilBits', BYTE),
+        ('cAuxBuffers', BYTE),
+        ('iLayerType', BYTE),
+        ('bReserved', BYTE),
+        ('dwLayerMask', DWORD),
+        ('dwVisibleMask', DWORD),
+        ('dwDamageMask', DWORD)
+    ]
+
+WNDPROC = WINFUNCTYPE(LRESULT, HWND, UINT, WPARAM, LPARAM)
+MONITORENUMPROC = WINFUNCTYPE(BOOL, HMONITOR, HDC, LPRECT, LPARAM)
+
+
+class WNDCLASS(Structure):
+    _fields_ = [
+        ('style', UINT),
+        ('lpfnWndProc', WNDPROC),
+        ('cbClsExtra', c_int),
+        ('cbWndExtra', c_int),
+        ('hInstance', HINSTANCE),
+        ('hIcon', HICON),
+        ('hCursor', HCURSOR),
+        ('hbrBackground', HBRUSH),
+        ('lpszMenuName', c_char_p),
+        ('lpszClassName', c_wchar_p)
+    ]
 
 FONTENUMPROC = WINFUNCTYPE(INT, POINTER(LOGFONT), POINTER(TEXTMETRIC),
                            DWORD, c_void_p)
+
+
+gdi32 = windll.gdi32
+gdi32.ChoosePixelFormat.restype = c_int
+gdi32.ChoosePixelFormat.argtypes = [HDC, POINTER(PIXELFORMATDESCRIPTOR)]
+gdi32.CreateFontIndirectW.restype = HFONT
+gdi32.CreateFontIndirectW.argtypes = [POINTER(LOGFONT)]
 gdi32.EnumFontFamiliesExW.restype = INT
 gdi32.EnumFontFamiliesExW.argtypes = [HDC, POINTER(LOGFONT),
                                       FONTENUMPROC, LPARAM, DWORD]
-
+gdi32.GetDeviceCaps.argtypes = [HDC, INT]
+gdi32.GetDeviceCaps.restype = INT
 gdi32.GetOutlineTextMetricsW.restype = UINT
 gdi32.GetOutlineTextMetricsW.argtypes = [HDC, UINT,
                                          POINTER(OUTLINETEXTMETRIC)]
+gdi32.GetTextMetricsW.restype = BOOL
+gdi32.GetTextMetricsW.argtypes = [HDC, POINTER(TEXTMETRIC)]
+gdi32.GetStockObject.restype =  HGDIOBJ
+gdi32.GetStockObject.argtypes = [c_int]
+gdi32.SelectObject.restype = HGDIOBJ
+gdi32.SelectObject.argtypes = [HDC, HGDIOBJ]
+gdi32.SetGraphicsMode.restype = INT
+gdi32.SetGraphicsMode.argtypes = [HDC, INT]
+gdi32.SetPixelFormat.restype = BOOL
+gdi32.SetPixelFormat.argtypes = [HDC, c_int, POINTER(PIXELFORMATDESCRIPTOR)]
 
 
-gdi32.GetDeviceCaps.argtypes = [HDC, INT]
-gdi32.GetDeviceCaps.restype = INT
+kernel32 = windll.kernel32
+kernel32.GetModuleHandleW.restype = HMODULE
+kernel32.GetModuleHandleW.argtypes = [c_wchar_p]
 
 user32 = windll.user32
-
-user32.GetDC.restype = HDC  # HDC
-user32.GetDC.argtypes = [UINT32]  # HWND
-
+user32.AdjustWindowRectEx.restype = BOOL
+user32.AdjustWindowRectEx.argtypes = [LPRECT, DWORD, BOOL, DWORD]
+user32.ClientToScreen.restype = BOOL
+user32.ClientToScreen.argtypes = [HWND, LPPOINT]
+user32.CreateWindowExW.restype = HWND
+user32.CreateWindowExW.argtypes = [DWORD, c_wchar_p, c_wchar_p, DWORD, c_int,
+                                   c_int, c_int, c_int, HWND, HMENU, HINSTANCE,
+                                   LPVOID]
+user32.DefWindowProcW.restype = LRESULT
+user32.DefWindowProcW.argtypes = [HWND, UINT, WPARAM, LPARAM]
+user32.DestroyWindow.restype = BOOL
+user32.DestroyWindow.argtypes = [HWND]
+user32.GetClientRect.restype = BOOL
+user32.GetClientRect.argtypes = [HWND, LPRECT]
+user32.GetDC.restype = HDC
+user32.GetDC.argtypes = [HWND]
+user32.GetMonitorInfoW.restype = BOOL
+user32.GetMonitorInfoW.argtypes = [HMONITOR, POINTER(MONITORINFOEX)]
+user32.GetWindowTextW.restype = INT
+user32.GetWindowTextW.argtypes = [HWND, c_wchar_p, INT]
+user32.EnumDisplayMonitors.restype = BOOL
+user32.EnumDisplayMonitors.argtypes = [HDC, LPRECT, MONITORENUMPROC, LPARAM]
+user32.EnumDisplaySettingsW.restype = BOOL
+user32.EnumDisplaySettingsW.argtypes = [c_wchar_p, DWORD, POINTER(DEVMODE)]
+user32.IsWindowVisible.restype = BOOL
+user32.IsWindowVisible.argtypes = [HWND]
+user32.LoadIconW.restype = HICON
+user32.LoadIconW.argtypes = [HINSTANCE, c_wchar_p]
+user32.RegisterClassW.restype = ATOM
+user32.RegisterClassW.argtypes = [POINTER(WNDCLASS)]
 user32.ReleaseDC.argtypes = [c_void_p, HDC]
-
 user32.SetProcessDPIAware.argtypes = []
+user32.SetWindowPos.restype = BOOL
+user32.SetWindowPos.argtypes = [HWND, HWND, c_int, c_int, c_int, c_int, UINT]
+user32.SetWindowTextW.restype = BOOL
+user32.SetWindowTextW.argtypes = [HWND, c_wchar_p]
+user32.ShowWindow.restype = BOOL
+user32.ShowWindow.argtypes = [HWND, c_int]
+user32.UnregisterClassW.restype = BOOL
+user32.UnregisterClassW.argtypes = [c_wchar_p, HINSTANCE]
 
 
 # gdiplus
@@ -178,16 +327,12 @@ class GdiplusStartupOutput(Structure):
                ('NotificationUnhookProc', c_void_p)]
 
 gdiplus = windll.gdiplus
-
 gdiplus.GdipCreateFontFamilyFromName.restype = c_int
 gdiplus.GdipCreateFontFamilyFromName.argtypes = [c_wchar_p, c_void_p, c_void_p]
-
 gdiplus.GdipNewPrivateFontCollection.restype = c_int
 gdiplus.GdipNewPrivateFontCollection.argtypes = [c_void_p]
-
 gdiplus.GdipPrivateAddFontFile.restype = c_int
 gdiplus.GdipPrivateAddFontFile.argtypes = [c_void_p, c_wchar_p]
-
 gdiplus.GdipGetFamilyName.restype = c_int
 gdiplus.GdipGetFamilyName.argtypes = [c_void_p, c_wchar_p, c_int]
 
