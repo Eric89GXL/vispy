@@ -312,6 +312,9 @@ _event_key = {
 }
 
 
+_VP_NATIVE_ALL_WINDOWS = []
+
+
 class CanvasBackend(BaseCanvasBackend):
     def __init__(self, *args, **kwargs):
         BaseCanvasBackend.__init__(self, *args)
@@ -376,7 +379,7 @@ class CanvasBackend(BaseCanvasBackend):
             share = context.backend_canvas.context
         else:
             raise RuntimeError('Different backends cannot share a context.')
-        self.context = _Win32Context(self._dc, context, share)
+        self.context = _Win32Context(self._dc, context.config, share)
         self.context.set_current()
 
         # Position and size window
@@ -390,6 +393,8 @@ class CanvasBackend(BaseCanvasBackend):
         user32.SetWindowPos(self._view_hwnd, 0, x, y, width, height,
                             SWP_NOZORDER | SWP_NOOWNERZORDER)
         self._vispy_set_visible(show)
+        self._closed = False
+        _VP_NATIVE_ALL_WINDOWS.append(self)
 
     def _vispy_set_current(self):
         self._vispy_context.set_current(False)  # Mark as current
@@ -430,12 +435,14 @@ class CanvasBackend(BaseCanvasBackend):
     def _vispy_close(self):
         if not self._hwnd:
             return
+        self._closed = True
         self.context.detach()
         user32.DestroyWindow(self._hwnd)
         user32.UnregisterClassW(self._wc.lpszClassName, 0)
         user32.UnregisterClassW(self._vwc.lpszClassName, 0)
         user32.ReleaseDC(self._dc)
         self._hwnd = self._dc = None
+        _VP_NATIVE_ALL_WINDOWS[_VP_NATIVE_ALL_WINDOWS.index(self)] = None
 
     def _vispy_get_size(self):
         rect = RECT()
@@ -452,6 +459,9 @@ class CanvasBackend(BaseCanvasBackend):
 
     def _vispy_get_fullscreen(self):
         return self._fullscreen
+
+    def _poll_events(self):
+        return  # don't need to explicitly poll in Windows
 
     def _client_to_window_size(self, width, height):
         r = RECT()

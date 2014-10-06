@@ -169,7 +169,7 @@ class CanvasBackend(_Window, BaseCanvasBackend):
         BaseCanvasBackend.__init__(self, *args)
         title, size, position, show, vsync, resize, dec, fs, parent, context, \
             = self._process_backend_kwargs(kwargs)
-        
+
         # Deal with context
         if not context.istaken:
             context.take('pyglet', self)
@@ -178,7 +178,7 @@ class CanvasBackend(_Window, BaseCanvasBackend):
             config = None  # contexts are shared by default in Pyglet
         else:
             raise RuntimeError('Different backends cannot share a context.')
-        
+
         style = (pyglet.window.Window.WINDOW_STYLE_DEFAULT if dec else
                  pyglet.window.Window.WINDOW_STYLE_BORDERLESS)
         # We keep track of modifier keys so we can pass them to mouse_motion
@@ -208,7 +208,7 @@ class CanvasBackend(_Window, BaseCanvasBackend):
                                       screen=self._vispy_screen)
         if position is not None:
             self._vispy_set_position(*position)
-    
+
     def _vispy_warmup(self):
         etime = time() + 0.1
         while time() < etime:
