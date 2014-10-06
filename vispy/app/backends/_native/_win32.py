@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2014, Vispy Development Team.
+# Distributed under the (new) BSD License. See LICENSE.txt for more info.
+
+# Adapted from Pyglet:
 # ----------------------------------------------------------------------------
 # pyglet
 # Copyright (c) 2006-2008 Alex Holkner
@@ -32,15 +37,15 @@
 # POSSIBILITY OF SUCH DAMAGE.
 # ----------------------------------------------------------------------------
 
-# Adapted from Pyglet
 
-from ctypes import (byref, c_wchar_p, c_int16, create_unicode_buffer, sizeof,
+from ctypes import (byref, c_wchar_p, c_int16, sizeof,
                     c_int, windll, POINTER, CFUNCTYPE, c_char_p)
 from ctypes.wintypes import HANDLE, UINT, BOOL
-from vispy.ext.gdi32plus import (gdi32, kernel32, user32,
-                                 RECT, POINT, HDC, WNDCLASS, WNDPROC,
-                                 MONITORINFOEX, MAKEINTRESOURCE, DEVMODE,
-                                 PIXELFORMATDESCRIPTOR, MONITORENUMPROC)
+from ....ext.gdi32plus import (gdi32, kernel32, user32,
+                               RECT, POINT, HDC, WNDCLASS, WNDPROC,
+                               MONITORINFOEX, MAKEINTRESOURCE, DEVMODE,
+                               PIXELFORMATDESCRIPTOR, MONITORENUMPROC)
+from ...base import BaseCanvasBackend
 
 WS_CHILD = 1073741824
 WS_VISIBLE = 268435456
@@ -222,26 +227,10 @@ def wglSwapIntervalEXT(interval):
     assert wgl.wglSwapIntervalEXT(int(interval))
 
 
-def wglCreateContextAttribsARB(hdc, hglrc, attribs):
-    funcname = c_char_p('wglCreateContextAttribsARB'.encode('ASCII'))
-    func = wgl.wglGetProcAddress(funcname)
-    assert func
-    return func(hdc, hglrc, attribs)
-
-
-class Win32Context(object):
+class _Win32Context(object):
+    """Create and manage a given context"""
     def __init__(self, hdc, cfg, share_context=None):
-        attrs = []
-        if cfg.get('major_version', None) is not None:
-            attrs.extend([WGL_CONTEXT_MAJOR_VERSION_ARB, cfg['major_version']])
-        if cfg.get('minor_version', None) is not None:
-            attrs.extend([WGL_CONTEXT_MINOR_VERSION_ARB, cfg['minor_version']])
-        flags = WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB
-        attrs.extend([WGL_CONTEXT_FLAGS_ARB, flags])
-        attrs.append(0)
-        attrs = (c_int * len(attrs))(*attrs)
-        #self._context = wglCreateContextAttribsARB(hdc, share_context, attrs)
-        _set_pfd(hdc)
+        _set_pfd(hdc, **cfg)
         self._context = wgl.wglCreateContext(hdc)
         if not self._context:
             raise RuntimeError('context could not be created')
@@ -323,23 +312,26 @@ _event_key = {
 }
 
 
-class Window(object):
-    def __init__(self, size=(800, 600), pos=None, title='test',
-                 resizable=True, fullscreen=False, visible=True, vsync=True):
+class CanvasBackend(BaseCanvasBackend):
+    def __init__(self, *args, **kwargs):
+        BaseCanvasBackend.__init__(self, *args)
+        title, size, position, show, vsync, resize, dec, fs, parent, context, \
+            = self._process_backend_kwargs(kwargs)
+
         screens = _get_screens()
-        if fullscreen is True or fullscreen is not False:
-            if fullscreen is True:
+        if fs is True or fs is not False:
+            if fs is True:
                 self._screen = screens[0]
             else:
-                self._screen = screens[fullscreen]
+                self._screen = screens[fs]
             self._ws = WS_POPUP & ~(WS_THICKFRAME | WS_MAXIMIZEBOX)
-        elif fullscreen is False:
+        elif fs is False:
             self._screen = screens[0]
             self._ws = WS_OVERLAPPEDWINDOW
-            if resizable:
+            if resize:
                 self._ws |= WS_THICKFRAME
 
-        if fullscreen is not False:
+        if fs is not False:
             self._fullscreen = True
             x, y = self._screen['x'], self._screen['y']
             width, height = self._screen['width'], self._screen['height']
@@ -376,64 +368,52 @@ class Window(object):
             0, self._vwc.lpszClassName, u'', WS_CHILD | WS_VISIBLE,
             0, 0, 0, 0, self._hwnd, 0, self._vwc.hInstance, 0)
         self._dc = user32.GetDC(self._view_hwnd)
-        self.context = Win32Context(self._dc, dict(vsync=vsync), None)
+        # Deal with context
+        if not context.istaken:
+            context.take('native', self)
+            share = None
+        elif context.istaken == 'native':
+            share = context.backend_canvas.context
+        else:
+            raise RuntimeError('Different backends cannot share a context.')
+        self.context = _Win32Context(self._dc, context, share)
         self.context.set_current()
 
         # Position and size window
         flags = SWP_FRAMECHANGED
         if not self._fullscreen:
-            if pos is None:
-                pos = (0, 0)
+            if position is None:
+                position = (0, 0)
                 flags |= SWP_NOMOVE
-            x, y = self._client_to_window_pos(*pos)
+            x, y = self._client_to_window_pos(*position)
         user32.SetWindowPos(self._hwnd, hwnd_after, x, y, width, height, flags)
         user32.SetWindowPos(self._view_hwnd, 0, x, y, width, height,
                             SWP_NOZORDER | SWP_NOOWNERZORDER)
-        self.visible = visible
+        self._vispy_set_visible(show)
 
-    def close(self):
-        if not self._hwnd:
-            return
-        self.context.detach()
-        user32.DestroyWindow(self._hwnd)
-        user32.UnregisterClassW(self._wc.lpszClassName, 0)
-        self._hwnd = self._dc = None
+    def _vispy_set_current(self):
+        self._vispy_context.set_current(False)  # Mark as current
+        self.context.set_current()
 
-    @property
-    def pos(self):
-        rect = RECT()
-        user32.GetClientRect(self._hwnd, byref(rect))
-        point = POINT()
-        point.x, point.y = rect.left, rect.top
-        user32.ClientToScreen(self._hwnd, byref(point))
-        return point.x, point.y
+    def _vispy_swap_buffers(self):
+        self.context.swap_buffers()
 
-    @pos.setter
-    def pos(self, pos):
-        x, y = self._client_to_window_pos(*pos)
-        user32.SetWindowPos(self._hwnd, 0, x, y, 0, 0,
-                            SWP_NOZORDER | SWP_NOSIZE | SWP_NOOWNERZORDER)
+    def _vispy_set_title(self, title):
+        user32.SetWindowTextW(self._hwnd, c_wchar_p(title))
 
-    @property
-    def size(self):
-        rect = RECT()
-        user32.GetClientRect(self._hwnd, byref(rect))
-        return rect.right - rect.left, rect.bottom - rect.top
-
-    @size.setter
-    def size(self, size):
+    def _vispy_set_size(self, w, h):
         if self._fullscreen:
             raise RuntimeError('Cannot set size of fullscreen window.')
-        self._width, self._height = self._client_to_window_size(*size)
+        self._width, self._height = self._client_to_window_size(w, h)
         user32.SetWindowPos(self._hwnd, 0, 0, 0, self._width, self._height,
                             SWP_NOZORDER | SWP_NOMOVE | SWP_NOOWNERZORDER)
 
-    @property
-    def visible(self):
-        return user32.IsWindowVisible(self._hwnd)
+    def _vispy_set_position(self, x, y):
+        x, y = self._client_to_window_pos(x, y)
+        user32.SetWindowPos(self._hwnd, 0, x, y, 0, 0,
+                            SWP_NOZORDER | SWP_NOSIZE | SWP_NOOWNERZORDER)
 
-    @visible.setter
-    def visible(self, visible):
+    def _vispy_set_visible(self, visible):
         if visible:
             insertAfter = HWND_TOPMOST if self._fullscreen else HWND_TOP
             user32.SetWindowPos(self._hwnd, insertAfter, 0, 0, 0, 0,
@@ -441,15 +421,37 @@ class Window(object):
         else:
             user32.ShowWindow(self._hwnd, SW_HIDE)
 
-    @property
-    def title(self):
-        buf = create_unicode_buffer('', 512)
-        user32.GetWindowTextW(self._hwnd, buf, 512)
-        return buf.value
+    def _vispy_set_fullscreen(self, fullscreen):
+        raise NotImplementedError()
 
-    @title.setter
-    def title(self, title):
-        user32.SetWindowTextW(self._hwnd, c_wchar_p(title))
+    def _vispy_update(self):
+        user32.InvalidateRect(self._view_hwnd, None, False)
+
+    def _vispy_close(self):
+        if not self._hwnd:
+            return
+        self.context.detach()
+        user32.DestroyWindow(self._hwnd)
+        user32.UnregisterClassW(self._wc.lpszClassName, 0)
+        user32.UnregisterClassW(self._vwc.lpszClassName, 0)
+        user32.ReleaseDC(self._dc)
+        self._hwnd = self._dc = None
+
+    def _vispy_get_size(self):
+        rect = RECT()
+        user32.GetClientRect(self._hwnd, byref(rect))
+        return rect.right - rect.left, rect.bottom - rect.top
+
+    def _vispy_get_position(self):
+        rect = RECT()
+        user32.GetClientRect(self._hwnd, byref(rect))
+        point = POINT()
+        point.x, point.y = rect.left, rect.top
+        user32.ClientToScreen(self._hwnd, byref(point))
+        return point.x, point.y
+
+    def _vispy_get_fullscreen(self):
+        return self._fullscreen
 
     def _client_to_window_size(self, width, height):
         r = RECT()
@@ -472,6 +474,3 @@ class Window(object):
         print('view event %s' % _event_key.get(msg, 'unknown (%s)' % msg))
         result = user32.DefWindowProcW(hwnd, msg, wParam, lParam)
         return result
-
-
-x = Window(fullscreen=False)

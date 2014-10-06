@@ -71,10 +71,11 @@ HORZRES = 8
 VERTRES = 10
 
 
+# gdi32
+
 def MAKEINTRESOURCE(i):
     return cast(c_void_p(i & 0xFFFF), c_wchar_p)
 
-# gdi32
 
 class POINT(Structure):
     _fields_ = [('x', LONG), ('y', LONG)]
@@ -257,7 +258,7 @@ gdi32.GetOutlineTextMetricsW.argtypes = [HDC, UINT,
                                          POINTER(OUTLINETEXTMETRIC)]
 gdi32.GetTextMetricsW.restype = BOOL
 gdi32.GetTextMetricsW.argtypes = [HDC, POINTER(TEXTMETRIC)]
-gdi32.GetStockObject.restype =  HGDIOBJ
+gdi32.GetStockObject.restype = HGDIOBJ
 gdi32.GetStockObject.argtypes = [c_int]
 gdi32.SelectObject.restype = HGDIOBJ
 gdi32.SelectObject.argtypes = [HDC, HGDIOBJ]
@@ -296,6 +297,8 @@ user32.EnumDisplayMonitors.restype = BOOL
 user32.EnumDisplayMonitors.argtypes = [HDC, LPRECT, MONITORENUMPROC, LPARAM]
 user32.EnumDisplaySettingsW.restype = BOOL
 user32.EnumDisplaySettingsW.argtypes = [c_wchar_p, DWORD, POINTER(DEVMODE)]
+user32.InvalidateRect.restype = BOOL
+user32.InvalidateRect.argtypes = [HWND, LPRECT, BOOL]
 user32.IsWindowVisible.restype = BOOL
 user32.IsWindowVisible.argtypes = [HWND]
 user32.LoadIconW.restype = HICON
