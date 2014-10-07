@@ -148,7 +148,6 @@ class Canvas(app.Canvas):
         width, height = event.size
         gloo.set_viewport(0, 0, width, height)
         self.projection = perspective(45.0, width / float(height), 1.0, 1000.0)
-        self.program['u_projection'] = self.projection
 
     def on_mouse_wheel(self, event):
         self.translate += event.delta[1]
@@ -162,6 +161,7 @@ class Canvas(app.Canvas):
 
     def on_draw(self, event):
         gloo.clear('black')
+        self.program['u_projection'] = self.projection
         self.program.draw('points')
 
 

@@ -45,9 +45,29 @@ from ctypes import (c_int, POINTER, byref, c_ulong, pointer, cast, c_ubyte,
 
 from ...base import BaseCanvasBackend
 from ....ext.six import string_types
-from ....ext import glx
+from ....ext import glx, xlib
 from ....util import keys
 
+KEYMAP = {
+    65505: keys.SHIFT, 65506: keys.SHIFT,
+    65507: keys.CONTROL, 65508: keys.CONTROL,
+    65513: keys.ALT, 65514: keys.ALT,
+    65511: keys.META, 65512: keys.META,
+
+    65361: keys.LEFT, 65362: keys.UP, 65363: keys.RIGHT, 65364: keys.DOWN,
+    65365: keys.PAGEUP, 65366: keys.PAGEDOWN,
+
+    65379: keys.INSERT, 65535: keys.DELETE,
+    65360: keys.HOME, 655367: keys.END,
+
+    65307: keys.ESCAPE, 65288: keys.BACKSPACE,
+
+    65470: keys.F1, 65471: keys.F2, 65472: keys.F3, 65473: keys.F4,
+    65474: keys.F5, 65475: keys.F6, 65476: keys.F7, 65477: keys.F8,
+    65478: keys.F9, 65479: keys.F10, 65480: keys.F11, 65481: keys.F12,
+
+    32: keys.SPACE, 65293: keys.ENTER, 65421: keys.ENTER, 65289: keys.TAB,
+}
 
 _default_ev_mask = (0x1ffffff & ~xlib.PointerMotionHintMask
                     & ~xlib.ResizeRedirectMask & ~xlib.SubstructureNotifyMask)
@@ -152,7 +172,7 @@ class XContext(object):
         if self._destroyed:
             return
         if self.glx_window is not None:
-            glx.glXDestroyWindow(self.config.display._display, self.glx_window)
+            glx.glXDestroyWindow(self.x_display, self.glx_window)
             self.glx_window = None
         if self.glx_context is not None:
             glx.glXDestroyContext(self.x_display, self.glx_context)
@@ -171,7 +191,7 @@ _VP_NATIVE_ALL_WINDOWS = []
 
 def _pass(event):
     """Dummy event processor"""
-    print('Event: %s' % event.type)
+    pass
 
 
 def _translate_modifiers(state):
@@ -240,12 +260,8 @@ class CanvasBackend(BaseCanvasBackend):
             self._x_display, root, 0, 0, self._width, self._height,
             0, visual_info.depth, xlib.InputOutput, visual, mask,
             byref(window_attributes))
-        self._view = xlib.XCreateWindow(
-            self._x_display, self._window, 0, 0, self._width, self._height,
-            0, visual_info.depth, xlib.InputOutput, visual, mask,
-            byref(window_attributes))
-        xlib.XMapWindow(self._x_display, self._view)
-        xlib.XSelectInput(self._x_display, self._view, _default_ev_mask)
+        xlib.XMapWindow(self._x_display, self._window)
+        xlib.XSelectInput(self._x_display, self._window, _default_ev_mask)
 
         # Deal with context
         if not context.istaken:
@@ -255,7 +271,8 @@ class CanvasBackend(BaseCanvasBackend):
             share = context.backend_canvas.context
         else:
             raise RuntimeError('Different backends cannot share a context.')
-        self.context = XContext(self._x_display, self._x_screen_id, self._view,
+        self.context = XContext(self._x_display, self._x_screen_id,
+                                self._window,
                                 visual_info, fbconfigs, vsync, share)
         protocols = []
         protocols.append(xlib.XInternAtom(
@@ -302,7 +319,8 @@ class CanvasBackend(BaseCanvasBackend):
         _VP_NATIVE_ALL_WINDOWS.append(self)
         self._vispy_set_current()
         self._resizable = resize
-        self._needs_draw = False
+        self._needs_draw = True
+        self._vispy_canvas.events.initialize()
         if show:
             self._vispy_set_visible(True)
         self._event_handlers = {}
@@ -313,7 +331,6 @@ class CanvasBackend(BaseCanvasBackend):
         self._event_handlers[xlib.ButtonPress] = self._event_button
         self._event_handlers[xlib.ButtonRelease] = self._event_button
         self._event_handlers[xlib.ConfigureNotify] = self._event_configure
-        self._vispy_canvas.events.initialize()
 
     def _map(self):
         if self._mapped:
@@ -332,7 +349,6 @@ class CanvasBackend(BaseCanvasBackend):
                 break
         xlib.XSelectInput(self._x_display, self._window, _default_ev_mask)
         self._mapped = True
-        self._update_view_size()
 
     def _unmap(self):
         if not self._mapped:
@@ -361,11 +377,6 @@ class CanvasBackend(BaseCanvasBackend):
                         byref(root), byref(parent), byref(children),
                         byref(n_children))
         return root.value != parent.value
-
-    def _update_view_size(self):
-        xlib.XResizeWindow(self._x_display, self._view,
-                           self._width, self._height)
-        self._vispy_canvas.events.resize(size=(self._width, self._height))
 
     def _set_minmax_size(self, width, height):
         self._minmax_size = width, height
@@ -424,6 +435,9 @@ class CanvasBackend(BaseCanvasBackend):
         xlib.XSendEvent(self._x_display, self._get_root(),
                         False, xlib.SubstructureRedirectMask, byref(e))
 
+    def _vispy_warmup(self):
+        pass
+
     def _vispy_close(self):
         if not self._window:
             return
@@ -457,7 +471,6 @@ class CanvasBackend(BaseCanvasBackend):
             self._set_minmax_size(self._width, self._height)
         xlib.XResizeWindow(self._x_display, self._window,
                            self._width, self._height)
-        self._update_view_size()
 
     def _vispy_set_fullscreen(self, fullscreen):
         raise NotImplementedError()
@@ -493,23 +506,22 @@ class CanvasBackend(BaseCanvasBackend):
         self._map() if visible else self._unmap()
 
     def _poll_events(self):
+        if self._window is None:
+            return
         # Check for the events specific to this window, view, then close event
         e = xlib.XEvent()
         check = xlib.XCheckWindowEvent
-        while check(self._x_display, self._window, 0x1ffffff, byref(e)):
+        while self._window is not None and \
+                check(self._x_display, self._window, 0x1ffffff, byref(e)):
             # Key events are filtered by the xlib window event
             # handler so they get a shot at the prefiltered event.
             if e.xany.type not in (xlib.KeyPress, xlib.KeyRelease):
                 if xlib.XFilterEvent(e, 0):
                     continue
             self._event_handlers.get(e.type, _pass)(e)
-        while check(self._x_display, self._view, 0x1ffffff, byref(e)):
-            if e.xany.type not in (xlib.KeyPress, xlib.KeyRelease):
-                if xlib.XFilterEvent(e, 0):
-                    continue
-            self._event_handlers.get(e.type, _pass)(e)
-        while check(self._x_display, self._window,
-                    xlib.ClientMessage, byref(e)):
+        while self._window is not None and \
+                check(self._x_display, self._window,
+                      xlib.ClientMessage, byref(e)):
             self._event_handlers.get(e.type, _pass)(e)
 
     def _on_draw(self):
@@ -519,6 +531,7 @@ class CanvasBackend(BaseCanvasBackend):
     def _event_key(self, ev):
         key, buf = xlib.KeySym(), create_string_buffer(128)
         xlib.XLookupString(ev.xkey, buf, len(buf) - 1, byref(key), None)
+        key = int(key.value)
         if 97 <= key <= 122:
             key -= 32
         if key in KEYMAP:
@@ -535,7 +548,7 @@ class CanvasBackend(BaseCanvasBackend):
                                                   modifiers=m)
 
     def _event_motion(self, ev):
-        x, y = ev.xmotion.x, self._height - ev.xmotion.y
+        x, y = ev.xmotion.x, ev.xmotion.y
         m = _translate_modifiers(ev.xkey.state)
         self._vispy_canvas.events.mouse_move(pos=(x, y), modifiers=m)
 
@@ -546,12 +559,12 @@ class CanvasBackend(BaseCanvasBackend):
             self._vispy_canvas.close()
 
     def _event_button(self, ev):
-        x, y = ev.xmotion.x, self._height - ev.xmotion.y
+        x, y = ev.xmotion.x, ev.xmotion.y
         m = _translate_modifiers(ev.xbutton.state)
-        button = ev.xbutton.button
+        button = ev.xbutton.button  # already 1, 2, 3 as we need
         if ev.type == xlib.ButtonPress:
             if ev.xbutton.button in (4, 5):
-                dy = 1 if ev.xbutton.button == 4 else -1
+                dy = 1. if ev.xbutton.button == 4 else -1.
                 self._vispy_canvas.events.mouse_wheel(pos=(x, y),
                                                       delta=(0, dy),
                                                       modifiers=m)
@@ -571,4 +584,4 @@ class CanvasBackend(BaseCanvasBackend):
         w, h = ev.xconfigure.width, ev.xconfigure.height
         if self._width != w or self._height != h:
             self._width, self._height = w, h
-            self._update_view_size()
+            self._vispy_canvas.events.resize(size=(self._width, self._height))

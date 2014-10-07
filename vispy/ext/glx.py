@@ -34,19 +34,29 @@
 # ----------------------------------------------------------------------------
 
 from ctypes import (Structure, POINTER, CFUNCTYPE, cast, pointer, cdll, util,
-                    create_string_buffer, c_int, c_ulong, c_char_p, c_ubyte)
+                    byref, create_string_buffer, c_int, c_char_p, c_ubyte)
 
-from .xlib import XVisualInfo, Display
+from .xlib import XVisualInfo, Display, XID, Window
 
-GLX_VENDOR = 1 	# /usr/include/GL/glx.h:104
-GLX_VERSION = 2 	# /usr/include/GL/glx.h:105
-# H (/usr/include/GL/glx.h:26)
+_fname = util.find_library('GL')
+if not _fname:
+    raise RuntimeError('Could not load OpenGL library.')
+gl_lib = cdll.LoadLibrary(_fname)
+try:
+    glXGetProcAddressARB = getattr(gl_lib, 'glXGetProcAddressARB')
+    glXGetProcAddressARB.restype = POINTER(CFUNCTYPE(None))
+    glXGetProcAddressARB.argtypes = [POINTER(c_ubyte)]
+    _have_getprocaddress = True
+except AttributeError:
+    _have_getprocaddress = False
+
 GLX_BUFFER_SIZE = 2
 GLX_LEVEL = 3
 GLX_DOUBLEBUFFER = 5
 GLX_STEREO = 6
 GLX_AUX_BUFFERS = 7
 GLX_RED_SIZE = 8
+GLX_RGBA = 4 	# /usr/include/GL/glx.h:73
 GLX_GREEN_SIZE = 9 	# /usr/include/GL/glx.h:78
 GLX_BLUE_SIZE = 10 	# /usr/include/GL/glx.h:79
 GLX_ALPHA_SIZE = 11 	# /usr/include/GL/glx.h:80
@@ -56,12 +66,18 @@ GLX_ACCUM_RED_SIZE = 14 	# /usr/include/GL/glx.h:83
 GLX_ACCUM_GREEN_SIZE = 15 	# /usr/include/GL/glx.h:84
 GLX_ACCUM_BLUE_SIZE = 16 	# /usr/include/GL/glx.h:85
 GLX_ACCUM_ALPHA_SIZE = 17 	# /usr/include/GL/glx.h:86
-GLX_RGBA = 4 	# /usr/include/GL/glx.h:73
-GLX_SAMPLES = 100001 	# /usr/include/GL/glx.h:174
+GLX_BAD_CONTEXT = 5 	# /usr/include/GL/glx.h:96
+GLX_VENDOR = 1 	# /usr/include/GL/glx.h:104
+GLX_VERSION = 2 	# /usr/include/GL/glx.h:105
 GLX_X_RENDERABLE = 32786 	# /usr/include/GL/glx.h:147
 GLX_RGBA_TYPE = 32788 	# /usr/include/GL/glx.h:149
-GLX_BAD_CONTEXT = 5 	# /usr/include/GL/glx.h:96
-
+GLX_SAMPLES = 100001 	# /usr/include/GL/glx.h:174
+GLXPixmap = XID 	# /usr/include/GL/glx.h:179
+GLXDrawable = XID 	# /usr/include/GL/glx.h:180
+GLXFBConfigID = XID 	# /usr/include/GL/glx.h:183
+GLXContextID = XID 	# /usr/include/GL/glx.h:184
+GLXWindow = XID 	# /usr/include/GL/glx.h:185
+GLXPbuffer = XID 	# /usr/include/GL/glx.h:186
 # From glxproto.h
 GLXBadFBConfig = 9
 
@@ -77,9 +93,6 @@ struct___GLXcontextRec._fields_ = [('_opaque_struct', c_int)]
 
 
 GLXContext = POINTER(struct___GLXcontextRec) 	# /usr/include/GL/glx.h:178
-XID = c_ulong 	# /usr/include/X11/X.h:66
-GLXPixmap = XID 	# /usr/include/GL/glx.h:179
-GLXDrawable = XID 	# /usr/include/GL/glx.h:180
 
 
 class struct___GLXFBConfigRec(Structure):
@@ -95,24 +108,6 @@ struct___GLXFBConfigRec._fields_ = [
 ]
 
 GLXFBConfig = POINTER(struct___GLXFBConfigRec) 	# /usr/include/GL/glx.h:182
-GLXFBConfigID = XID 	# /usr/include/GL/glx.h:183
-GLXContextID = XID 	# /usr/include/GL/glx.h:184
-GLXWindow = XID 	# /usr/include/GL/glx.h:185
-GLXPbuffer = XID 	# /usr/include/GL/glx.h:186
-Window = XID 	# /usr/include/X11/X.h:96
-
-
-_fname = util.find_library('GL')
-if not _fname:
-    raise RuntimeError('Could not load OpenGL library.')
-gl_lib = cdll.LoadLibrary(_fname)
-try:
-    glXGetProcAddressARB = getattr(gl_lib, 'glXGetProcAddressARB')
-    glXGetProcAddressARB.restype = POINTER(CFUNCTYPE(None))
-    glXGetProcAddressARB.argtypes = [POINTER(c_ubyte)]
-    _have_getprocaddress = True
-except AttributeError:
-    _have_getprocaddress = False
 
 
 def _link(name, restype, argtypes):
@@ -170,6 +165,8 @@ glXQueryExtensionsString = _link('glXQueryExtensionsString', c_char_p,
                                  [POINTER(Display), c_int])
 glXSwapIntervalMESA = _link('glXSwapIntervalMESA', c_int, [c_int])
 glXSwapIntervalSGI = _link('glXSwapIntervalSGI', c_int, [c_int])
+glXQueryVersion = _link('glXQueryVersion', c_int,
+                        [POINTER(Display), POINTER(c_int), POINTER(c_int)])
 
 
 class GLXInfo(object):
@@ -187,19 +184,25 @@ class GLXInfo(object):
                 tuple(client) >= (major, minor))
 
     def get_client_vendor(self):
-        self.check_display()
         return glXGetClientString(self.display, GLX_VENDOR).decode('utf-8')
 
     def get_client_version(self):
-        self.check_display()
         return glXGetClientString(self.display, GLX_VERSION).decode('utf-8')
+
+    def get_server_version(self):
+        # glXQueryServerString was introduced in GLX 1.1, so we need to use the
+        # 1.0 function here which queries the server implementation for its
+        # version.
+        major, minor = c_int(), c_int()
+        if not glXQueryVersion(self.display, byref(major), byref(minor)):
+            raise RuntimeError('Could not determine GLX server version')
+        return '%s.%s' % (major.value, minor.value)
 
     def get_extensions(self):
         return glXQueryExtensionsString(self.display,
                                         0).decode('utf-8').split()
 
     def have_extension(self, extension):
-        self.check_display()
         if not self.have_version(1, 1):
             return False
         return extension in self.get_extensions()

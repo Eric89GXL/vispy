@@ -67,6 +67,9 @@ extra: clean-test
 nobackend : clean-test
 	python make test nobackend
 
+native: clean-test
+	python make test native
+
 pyqt4: clean-test
 	python make test pyqt4
 

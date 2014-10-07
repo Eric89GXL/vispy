@@ -44,15 +44,11 @@ if not _fname:
 _lib = cdll.LoadLibrary(_fname)
 
 
+XID = c_ulong 	# /usr/include/X11/X.h:66
 Atom = c_ulong 	# /usr/include/X11/X.h:74
 VisualID = c_ulong 	# /usr/include/X11/X.h:76
-XPointer = c_char_p 	# /usr/include/X11/Xlib.h:87
-
-XA_CARDINAL = 6  # Xatom.h:14
-
-
-XID = c_ulong 	# /usr/include/X11/X.h:66
 Time = c_ulong 	# /usr/include/X11/X.h:77
+XPointer = c_char_p 	# /usr/include/X11/Xlib.h:87
 Window = XID 	# /usr/include/X11/X.h:96
 Drawable = XID 	# /usr/include/X11/X.h:97
 Pixmap = XID 	# /usr/include/X11/X.h:102
@@ -60,6 +56,7 @@ Cursor = XID 	# /usr/include/X11/X.h:103
 Colormap = XID 	# /usr/include/X11/X.h:104
 KeySym = XID 	# /usr/include/X11/X.h:106
 PointerMotionHintMask = 128 	# /usr/include/X11/X.h:158
+StructureNotifyMask = 131072 	# /usr/include/X11/X.h:168
 ResizeRedirectMask = 262144 	# /usr/include/X11/X.h:169
 SubstructureNotifyMask = 524288 	# /usr/include/X11/X.h:170
 SubstructureRedirectMask = 1048576 	# /usr/include/X11/X.h:171
@@ -86,6 +83,8 @@ PropModePrepend = 1 	# /usr/include/X11/X.h:476
 AllocNone = 0 	# /usr/include/X11/X.h:616
 PMinSize = 16 	# /usr/include/X11/Xutil.h:4844
 PMaxSize = 32 	# /usr/include/X11/Xutil.h:4845
+
+XA_CARDINAL = 6  # Xatom.h:14
 
 
 class XExtData(Structure):
@@ -513,7 +512,8 @@ XEvent._fields_ = [
     ('xreparent', XReparentEvent), ('xconfigure', XConfigureEvent),
     ('xgravity', XGravityEvent), ('xresizerequest', XResizeRequestEvent),
     ('xconfigurerequest', XConfigureRequestEvent),
-    ('xcirculate', XCirculateEvent), ('xcirculaterequest', XCirculateRequestEvent),
+    ('xcirculate', XCirculateEvent),
+    ('xcirculaterequest', XCirculateRequestEvent),
     ('xproperty', XPropertyEvent), ('xselectionclear', XSelectionClearEvent),
     ('xselectionrequest', XSelectionRequestEvent),
     ('xselection', XSelectionEvent), ('xcolormap', XColormapEvent),
@@ -521,6 +521,66 @@ XEvent._fields_ = [
     ('xerror', XErrorEvent), ('xkeymap', XKeymapEvent),
     ('xgeneric', XGenericEvent), ('xcookie', XGenericEventCookie),
     ('pad', c_long * 24)]
+
+
+class Depth(Structure):
+    __slots__ = ['depth', 'nvisuals', 'visuals']
+Depth._fields_ = [('depth', c_int), ('nvisuals', c_int),
+                  ('visuals', POINTER(Visual))]
+
+
+class struct__XGC(Structure):
+    __slots__ = []
+struct__XGC._fields_ = [('_opaque_struct', c_int)]
+GC = POINTER(struct__XGC)
+
+
+class Screen(Structure):
+    __slots__ = [
+        'ext_data', 'display', 'root', 'width', 'height', 'mwidth', 'mheight',
+        'ndepths', 'depths', 'root_depth', 'root_visual', 'default_gc',
+        'cmap', 'white_pixel', 'black_pixel', 'max_maps', 'min_maps',
+        'backing_store', 'save_unders', 'root_input_mask']
+Screen._fields_ = [
+    ('ext_data', POINTER(XExtData)), ('display', POINTER(Display)),
+    ('root', Window), ('width', c_int), ('height', c_int), ('mwidth', c_int),
+    ('mheight', c_int), ('ndepths', c_int), ('depths', POINTER(Depth)),
+    ('root_depth', c_int), ('root_visual', POINTER(Visual)),
+    ('default_gc', GC), ('cmap', Colormap), ('white_pixel', c_ulong),
+    ('black_pixel', c_ulong), ('max_maps', c_int), ('min_maps', c_int),
+    ('backing_store', c_int), ('save_unders', c_int),
+    ('root_input_mask', c_long)]
+
+
+class XWindowAttributes(Structure):
+    __slots__ = [
+        'x', 'y', 'width', 'height', 'border_width', 'depth', 'visual', 'root',
+        'class', 'bit_gravity', 'win_gravity', 'backing_store',
+        'backing_planes', 'backing_pixel', 'save_under', 'colormap',
+        'map_installed', 'map_state', 'all_event_masks', 'your_event_mask',
+        'do_not_propagate_mask', 'override_redirect', 'screen']
+XWindowAttributes._fields_ = [
+    ('x', c_int), ('y', c_int), ('width', c_int), ('height', c_int),
+    ('border_width', c_int), ('depth', c_int), ('visual', POINTER(Visual)),
+    ('root', Window), ('class', c_int), ('bit_gravity', c_int),
+    ('win_gravity', c_int), ('backing_store', c_int),
+    ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
+    ('save_under', c_int), ('colormap', Colormap), ('map_installed', c_int),
+    ('map_state', c_int), ('all_event_masks', c_long),
+    ('your_event_mask', c_long), ('do_not_propagate_mask', c_long),
+    ('override_redirect', c_int), ('screen', POINTER(Screen))]
+
+
+class XComposeStatus(Structure):
+    __slots__ = ['compose_ptr', 'chars_matched']
+XComposeStatus._fields_ = [('compose_ptr', XPointer), ('chars_matched', c_int)]
+
+
+class XTextProperty(Structure):
+    __slots__ = ['value', 'encoding', 'format', 'nitems']
+XTextProperty._fields_ = [('value', POINTER(c_ubyte)), ('encoding', Atom),
+                          ('format', c_int), ('nitems', c_ulong)]
+
 
 ##############################################################################
 # FUNCTIONS
@@ -544,34 +604,125 @@ XCheckWindowEvent.restype = c_int
 XCheckWindowEvent.argtypes = [POINTER(Display), Window, c_long,
                               POINTER(XEvent)]
 
-XCreateColormap
-XCreateWindow
-XDefaultColormap
-XDefaultVisual
-XDeleteProperty
-XEvent
-XFilterEvent
-XGetWindowAttributes
-XInternAtom
-XLookupString
-XMapWindow
-XMapRaised
-XMoveResizeWindow
-XMoveWindow
-XNextEvent
-XOpenDisplay
-XQueryTree
-XResizeWindow
-XRootWindow
-XScreenCount
-XScreenOfDisplay
-XSelectInput
-XSetTextProperty
-XSetWindowAttributes
-XSetWMProtocols
-XStringListToTextProperty
-XTextProperty
-XTranslateCoordinates
-XUnmapWindow
-XVisualIDFromVisual
-XWindowAttributes
+XCreateColormap = _lib.XCreateColormap
+XCreateColormap.restype = Colormap
+XCreateColormap.argtypes = [POINTER(Display), Window, POINTER(Visual), c_int]
+
+XCreateWindow = _lib.XCreateWindow
+XCreateWindow.restype = Window
+XCreateWindow.argtypes = [POINTER(Display), Window, c_int, c_int, c_uint,
+                          c_uint, c_uint, c_int, c_uint, POINTER(Visual),
+                          c_ulong, POINTER(XSetWindowAttributes)]
+
+XDefaultColormap = _lib.XDefaultColormap
+XDefaultColormap.restype = Colormap
+XDefaultColormap.argtypes = [POINTER(Display), c_int]
+
+XDefaultVisual = _lib.XDefaultVisual
+XDefaultVisual.restype = POINTER(Visual)
+XDefaultVisual.argtypes = [POINTER(Display), c_int]
+
+XDeleteProperty = _lib.XDeleteProperty
+XDeleteProperty.restype = c_int
+XDeleteProperty.argtypes = [POINTER(Display), Window, Atom]
+
+XDestroyWindow = _lib.XDestroyWindow
+XDestroyWindow.restype = c_int
+XDestroyWindow.argtypes = [POINTER(Display), Window]
+
+XFilterEvent = _lib.XFilterEvent
+XFilterEvent.restype = c_int
+XFilterEvent.argtypes = [POINTER(XEvent), Window]
+
+XGetWindowAttributes = _lib.XGetWindowAttributes
+XGetWindowAttributes.restype = c_int
+XGetWindowAttributes.argtypes = [POINTER(Display), Window,
+                                 POINTER(XWindowAttributes)]
+
+XInternAtom = _lib.XInternAtom
+XInternAtom.restype = Atom
+XInternAtom.argtypes = [POINTER(Display), c_char_p, c_int]
+
+XLookupString = _lib.XLookupString
+XLookupString.restype = c_int
+XLookupString.argtypes = [POINTER(XKeyEvent), c_char_p, c_int, POINTER(KeySym),
+                          POINTER(XComposeStatus)]
+
+XMapWindow = _lib.XMapWindow
+XMapWindow.restype = c_int
+XMapWindow.argtypes = [POINTER(Display), Window]
+
+XMapRaised = _lib.XMapRaised
+XMapRaised.restype = c_int
+XMapRaised.argtypes = [POINTER(Display), Window]
+
+XMoveResizeWindow = _lib.XMoveResizeWindow
+XMoveResizeWindow.restype = c_int
+XMoveResizeWindow.argtypes = [POINTER(Display), Window, c_int, c_int, c_uint,
+                              c_uint]
+
+XMoveWindow = _lib.XMoveWindow
+XMoveWindow.restype = c_int
+XMoveWindow.argtypes = [POINTER(Display), Window, c_int, c_int]
+
+XNextEvent = _lib.XNextEvent
+XNextEvent.restype = c_int
+XNextEvent.argtypes = [POINTER(Display), POINTER(XEvent)]
+
+XOpenDisplay = _lib.XOpenDisplay
+XOpenDisplay.restype = POINTER(Display)
+XOpenDisplay.argtypes = [c_char_p]
+
+XQueryTree = _lib.XQueryTree
+XQueryTree.restype = c_int
+XQueryTree.argtypes = [POINTER(Display), Window, POINTER(Window),
+                       POINTER(Window), POINTER(POINTER(Window)),
+                       POINTER(c_uint)]
+
+XResizeWindow = _lib.XResizeWindow
+XResizeWindow.restype = c_int
+XResizeWindow.argtypes = [POINTER(Display), Window, c_uint, c_uint]
+
+XRootWindow = _lib.XRootWindow
+XRootWindow.restype = Window
+XRootWindow.argtypes = [POINTER(Display), c_int]
+
+XScreenCount = _lib.XScreenCount
+XScreenCount.restype = c_int
+XScreenCount.argtypes = [POINTER(Display)]
+
+XScreenOfDisplay = _lib.XScreenOfDisplay
+XScreenOfDisplay.restype = POINTER(Screen)
+XScreenOfDisplay.argtypes = [POINTER(Display), c_int]
+
+XSelectInput = _lib.XSelectInput
+XSelectInput.restype = c_int
+XSelectInput.argtypes = [POINTER(Display), Window, c_long]
+
+XSetTextProperty = _lib.XSetTextProperty
+XSetTextProperty.restype = None
+XSetTextProperty.argtypes = [POINTER(Display), Window, POINTER(XTextProperty),
+                             Atom]
+
+XSetWMProtocols = _lib.XSetWMProtocols
+XSetWMProtocols.restype = c_int
+XSetWMProtocols.argtypes = [POINTER(Display), Window, POINTER(Atom), c_int]
+
+XStringListToTextProperty = _lib.XStringListToTextProperty
+XStringListToTextProperty.restype = c_int
+XStringListToTextProperty.argtypes = [POINTER(c_char_p), c_int,
+                                      POINTER(XTextProperty)]
+
+XTranslateCoordinates = _lib.XTranslateCoordinates
+XTranslateCoordinates.restype = c_int
+XTranslateCoordinates.argtypes = [POINTER(Display), Window, Window, c_int,
+                                  c_int, POINTER(c_int), POINTER(c_int),
+                                  POINTER(Window)]
+
+XUnmapWindow = _lib.XUnmapWindow
+XUnmapWindow.restype = c_int
+XUnmapWindow.argtypes = [POINTER(Display), Window]
+
+XVisualIDFromVisual = _lib.XVisualIDFromVisual
+XVisualIDFromVisual.restype = VisualID
+XVisualIDFromVisual.argtypes = [POINTER(Visual)]

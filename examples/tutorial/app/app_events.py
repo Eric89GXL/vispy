@@ -7,7 +7,7 @@ You should see information displayed for any event you triggered.
 """
 
 from vispy import gloo, app, use
-use('pyqt4')  # can be another app backend name
+use('native')  # can be another app backend name
 
 
 class Canvas(app.Canvas):
@@ -55,6 +55,7 @@ class Canvas(app.Canvas):
               (what, event.pos, event.button, modifiers, event.delta))
 
     def on_draw(self, event):
+        print('draw')
         gloo.clear(color=True, depth=True)
 
 
