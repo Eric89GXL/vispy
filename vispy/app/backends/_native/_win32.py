@@ -146,7 +146,7 @@ def _set_pfd(hdc, double_buffer=True, stereo=False, depth_size=None,
              buffer_size=None, stencil_size=None,
              blue_size=None, red_size=None, green_size=None, alpha_size=None,
              accum_red_size=None, accum_green_size=None, accum_blue_size=None,
-             accum_alpha_size=None, aux_buffers=None):
+             accum_alpha_size=None, aux_buffers=None, samples=None):
     """Set pixel format of a drawing context"""
     pfd = PIXELFORMATDESCRIPTOR()
     pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR)
@@ -177,6 +177,7 @@ def _set_pfd(hdc, double_buffer=True, stereo=False, depth_size=None,
     if not pf:
         raise RuntimeError('could not get correct pixel format')
     gdi32.SetPixelFormat(hdc, pf, pfd)
+    # XXX Add samples
 
 
 # http://www.opengl.org/registry/api/wglext.h
@@ -394,6 +395,7 @@ class CanvasBackend(BaseCanvasBackend):
                             SWP_NOZORDER | SWP_NOOWNERZORDER)
         self._vispy_set_visible(show)
         self._closed = False
+        self._needs_draw = False
         _VP_NATIVE_ALL_WINDOWS.append(self)
 
     def _vispy_set_current(self):
@@ -430,7 +432,11 @@ class CanvasBackend(BaseCanvasBackend):
         raise NotImplementedError()
 
     def _vispy_update(self):
-        user32.InvalidateRect(self._view_hwnd, None, False)
+        self._needs_draw = True
+
+    def _on_draw(self):
+        self._vispy_set_current()
+        self._vispy_canvas.events.draw(region=None)  # (0, 0, w, h))
 
     def _vispy_close(self):
         if not self._hwnd:

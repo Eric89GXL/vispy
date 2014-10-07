@@ -34,7 +34,8 @@
 # ----------------------------------------------------------------------------
 
 from ctypes import (Structure, POINTER, CFUNCTYPE, util, cdll, Union,
-                    c_int, c_uint, c_long, c_ulong, c_char_p, c_ubyte, c_char)
+                    c_int, c_uint, c_long, c_ulong, c_char_p, c_ubyte, c_char,
+                    c_short)
 
 
 _fname = util.find_library('X11')
@@ -231,748 +232,295 @@ XFocusOutEvent = XFocusChangeEvent 	# /usr/include/X11/Xlib.h:661
 
 
 class XKeymapEvent(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'window',
-        'key_vector',
-    ]
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'window',
+                 'key_vector']
 XKeymapEvent._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('window', Window),
-    ('key_vector', c_char * 32),
-]
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('window', Window),
+    ('key_vector', c_char * 32)]
 
 
 class XExposeEvent(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'window',
-        'x',
-        'y',
-        'width',
-        'height',
-        'count',
-    ]
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'window',
+                 'x', 'y', 'width', 'height', 'count']
 XExposeEvent._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('window', Window),
-    ('x', c_int),
-    ('y', c_int),
-    ('width', c_int),
-    ('height', c_int),
-    ('count', c_int),
-]
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('window', Window), ('x', c_int),
+    ('y', c_int), ('width', c_int), ('height', c_int), ('count', c_int)]
 
 
 class XGraphicsExposeEvent(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'drawable',
-        'x',
-        'y',
-        'width',
-        'height',
-        'count',
-        'major_code',
-        'minor_code',
-    ]
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'drawable',
+                 'x', 'y', 'width', 'height', 'count', 'major_code',
+                 'minor_code']
 XGraphicsExposeEvent._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('drawable', Drawable),
-    ('x', c_int),
-    ('y', c_int),
-    ('width', c_int),
-    ('height', c_int),
-    ('count', c_int),
-    ('major_code', c_int),
-    ('minor_code', c_int),
-]
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('drawable', Drawable), ('x', c_int),
+    ('y', c_int), ('width', c_int), ('height', c_int), ('count', c_int),
+    ('major_code', c_int), ('minor_code', c_int)]
 
 
 class XNoExposeEvent(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'drawable',
-        'major_code',
-        'minor_code',
-    ]
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'drawable',
+                 'major_code', 'minor_code']
 XNoExposeEvent._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('drawable', Drawable),
-    ('major_code', c_int),
-    ('minor_code', c_int),
-]
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('drawable', Drawable),
+    ('major_code', c_int), ('minor_code', c_int)]
 
 
 class XVisibilityEvent(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'window',
-        'state',
-    ]
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'window',
+                 'state']
 XVisibilityEvent._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('window', Window),
-    ('state', c_int),
-]
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('window', Window), ('state', c_int)]
 
 
 class XCreateWindowEvent(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'parent',
-        'window',
-        'x',
-        'y',
-        'width',
-        'height',
-        'border_width',
-        'override_redirect',
-    ]
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'parent', 'window',
+                 'x', 'y', 'width', 'height', 'border_width',
+                 'override_redirect']
 XCreateWindowEvent._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('parent', Window),
-    ('window', Window),
-    ('x', c_int),
-    ('y', c_int),
-    ('width', c_int),
-    ('height', c_int),
-    ('border_width', c_int),
-    ('override_redirect', c_int),
-]
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('parent', Window), ('window', Window),
+    ('x', c_int), ('y', c_int), ('width', c_int), ('height', c_int),
+    ('border_width', c_int), ('override_redirect', c_int)]
 
 
 class XDestroyWindowEvent(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'event',
-        'window',
-    ]
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'event', 'window']
 XDestroyWindowEvent._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('event', Window),
-    ('window', Window),
-]
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('event', Window), ('window', Window)]
 
 
 class XUnmapEvent(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'event',
-        'window',
-        'from_configure',
-    ]
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'event', 'window',
+                 'from_configure']
 XUnmapEvent._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('event', Window),
-    ('window', Window),
-    ('from_configure', c_int),
-]
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('event', Window), ('window', Window),
+    ('from_configure', c_int)]
 
 
 class XMapEvent(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'event',
-        'window',
-        'override_redirect',
-    ]
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'event', 'window',
+                 'override_redirect']
 XMapEvent._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('event', Window),
-    ('window', Window),
-    ('override_redirect', c_int),
-]
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('event', Window), ('window', Window),
+    ('override_redirect', c_int)]
 
 
 class XMapRequestEvent(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'parent',
-        'window',
-    ]
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'parent', 'window']
 XMapRequestEvent._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('parent', Window),
-    ('window', Window),
-]
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('parent', Window), ('window', Window)]
 
 
 class XReparentEvent(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'event',
-        'window',
-        'parent',
-        'x',
-        'y',
-        'override_redirect',
-    ]
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'event', 'window',
+                 'parent', 'x', 'y', 'override_redirect']
 XReparentEvent._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('event', Window),
-    ('window', Window),
-    ('parent', Window),
-    ('x', c_int),
-    ('y', c_int),
-    ('override_redirect', c_int),
-]
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('event', Window), ('window', Window),
+    ('parent', Window), ('x', c_int), ('y', c_int),
+    ('override_redirect', c_int)]
 
 
-class struct_anon_53(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'event',
-        'window',
-        'x',
-        'y',
-        'width',
-        'height',
-        'border_width',
-        'above',
-        'override_redirect',
-    ]
-struct_anon_53._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('event', Window),
-    ('window', Window),
-    ('x', c_int),
-    ('y', c_int),
-    ('width', c_int),
-    ('height', c_int),
-    ('border_width', c_int),
-    ('above', Window),
-    ('override_redirect', c_int),
-]
+class XConfigureEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'event', 'window',
+                 'x', 'y', 'width', 'height', 'border_width', 'above',
+                 'override_redirect']
+XConfigureEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('event', Window), ('window', Window),
+    ('x', c_int), ('y', c_int), ('width', c_int), ('height', c_int),
+    ('border_width', c_int), ('above', Window), ('override_redirect', c_int)]
 
-XConfigureEvent = struct_anon_53 	# /usr/include/X11/Xlib.h:791
-class struct_anon_54(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'event',
-        'window',
-        'x',
-        'y',
-    ]
-struct_anon_54._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('event', Window),
-    ('window', Window),
-    ('x', c_int),
-    ('y', c_int),
-]
 
-XGravityEvent = struct_anon_54 	# /usr/include/X11/Xlib.h:801
-class struct_anon_55(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'window',
-        'width',
-        'height',
-    ]
-struct_anon_55._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('window', Window),
-    ('width', c_int),
-    ('height', c_int),
-]
+class XGravityEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'event', 'window',
+                 'x', 'y']
+XGravityEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('event', Window), ('window', Window),
+    ('x', c_int), ('y', c_int)]
 
-XResizeRequestEvent = struct_anon_55 	# /usr/include/X11/Xlib.h:810
-class struct_anon_56(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'parent',
-        'window',
-        'x',
-        'y',
-        'width',
-        'height',
-        'border_width',
-        'above',
-        'detail',
-        'value_mask',
-    ]
-struct_anon_56._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('parent', Window),
-    ('window', Window),
-    ('x', c_int),
-    ('y', c_int),
-    ('width', c_int),
-    ('height', c_int),
-    ('border_width', c_int),
-    ('above', Window),
-    ('detail', c_int),
-    ('value_mask', c_ulong),
-]
 
-XConfigureRequestEvent = struct_anon_56 	# /usr/include/X11/Xlib.h:825
-class struct_anon_57(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'event',
-        'window',
-        'place',
-    ]
-struct_anon_57._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('event', Window),
-    ('window', Window),
-    ('place', c_int),
-]
+class XResizeRequestEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'window',
+                 'width', 'height']
+XResizeRequestEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('window', Window), ('width', c_int),
+    ('height', c_int)]
 
-XCirculateEvent = struct_anon_57 	# /usr/include/X11/Xlib.h:835
-class struct_anon_58(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'parent',
-        'window',
-        'place',
-    ]
-struct_anon_58._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('parent', Window),
-    ('window', Window),
-    ('place', c_int),
-]
 
-XCirculateRequestEvent = struct_anon_58 	# /usr/include/X11/Xlib.h:845
-class struct_anon_59(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'window',
-        'atom',
-        'time',
-        'state',
-    ]
-struct_anon_59._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('window', Window),
-    ('atom', Atom),
-    ('time', Time),
-    ('state', c_int),
-]
+class XConfigureRequestEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'parent', 'window',
+                 'x', 'y', 'width', 'height', 'border_width', 'above',
+                 'detail', 'value_mask']
+XConfigureRequestEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('parent', Window), ('window', Window),
+    ('x', c_int), ('y', c_int), ('width', c_int), ('height', c_int),
+    ('border_width', c_int), ('above', Window), ('detail', c_int),
+    ('value_mask', c_ulong)]
 
-XPropertyEvent = struct_anon_59 	# /usr/include/X11/Xlib.h:856
-class struct_anon_60(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'window',
-        'selection',
-        'time',
-    ]
-struct_anon_60._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('window', Window),
-    ('selection', Atom),
-    ('time', Time),
-]
 
-XSelectionClearEvent = struct_anon_60 	# /usr/include/X11/Xlib.h:866
-class struct_anon_61(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'owner',
-        'requestor',
-        'selection',
-        'target',
-        'property',
-        'time',
-    ]
-struct_anon_61._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('owner', Window),
-    ('requestor', Window),
-    ('selection', Atom),
-    ('target', Atom),
-    ('property', Atom),
-    ('time', Time),
-]
+class XCirculateEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'event', 'window',
+                 'place']
+XCirculateEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('event', Window), ('window', Window),
+    ('place', c_int)]
 
-XSelectionRequestEvent = struct_anon_61 	# /usr/include/X11/Xlib.h:879
-class struct_anon_62(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'requestor',
-        'selection',
-        'target',
-        'property',
-        'time',
-    ]
-struct_anon_62._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('requestor', Window),
-    ('selection', Atom),
-    ('target', Atom),
-    ('property', Atom),
-    ('time', Time),
-]
 
-XSelectionEvent = struct_anon_62 	# /usr/include/X11/Xlib.h:891
-class struct_anon_63(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'window',
-        'colormap',
-        'new',
-        'state',
-    ]
-struct_anon_63._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('window', Window),
-    ('colormap', Colormap),
-    ('new', c_int),
-    ('state', c_int),
-]
+class XCirculateRequestEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'parent', 'window',
+                 'place']
+XCirculateRequestEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('parent', Window), ('window', Window),
+    ('place', c_int)]
 
-XColormapEvent = struct_anon_63 	# /usr/include/X11/Xlib.h:906
-class struct_anon_64(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'window',
-        'message_type',
-        'format',
-        'data',
-    ]
+
+class XPropertyEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'window',
+                 'atom', 'time', 'state']
+XPropertyEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('window', Window), ('atom', Atom),
+    ('time', Time), ('state', c_int)]
+
+
+class XSelectionClearEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'window',
+                 'selection', 'time']
+XSelectionClearEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('window', Window), ('selection', Atom),
+    ('time', Time)]
+
+
+class XSelectionRequestEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'owner',
+                 'requestor', 'selection', 'target', 'property', 'time']
+XSelectionRequestEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('owner', Window), ('requestor', Window),
+    ('selection', Atom), ('target', Atom), ('property', Atom), ('time', Time)]
+
+
+class XSelectionEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'requestor',
+                 'selection', 'target', 'property', 'time']
+XSelectionEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('requestor', Window), ('selection', Atom),
+    ('target', Atom), ('property', Atom), ('time', Time)]
+
+
+class XColormapEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'window',
+                 'colormap', 'new', 'state']
+XColormapEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('window', Window), ('colormap', Colormap),
+    ('new', c_int), ('state', c_int)]
+
+
 class struct_anon_65(Union):
-    __slots__ = [
-        'b',
-        's',
-        'l',
-    ]
+    __slots__ = ['b', 's', 'l']
 struct_anon_65._fields_ = [
-    ('b', c_char * 20),
-    ('s', c_short * 10),
-    ('l', c_long * 5),
-]
+    ('b', c_char * 20), ('s', c_short * 10), ('l', c_long * 5)]
 
-struct_anon_64._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('window', Window),
-    ('message_type', Atom),
-    ('format', c_int),
-    ('data', struct_anon_65),
-]
 
-XClientMessageEvent = struct_anon_64 	# /usr/include/X11/Xlib.h:921
-class struct_anon_66(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'window',
-        'request',
-        'first_keycode',
-        'count',
-    ]
-struct_anon_66._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('window', Window),
-    ('request', c_int),
-    ('first_keycode', c_int),
-    ('count', c_int),
-]
+class XClientMessageEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'window',
+                 'message_type', 'format', 'data']
+XClientMessageEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('window', Window), ('message_type', Atom),
+    ('format', c_int), ('data', struct_anon_65)]
 
-XMappingEvent = struct_anon_66 	# /usr/include/X11/Xlib.h:933
-class struct_anon_67(Structure):
-    __slots__ = [
-        'type',
-        'display',
-        'resourceid',
-        'serial',
-        'error_code',
-        'request_code',
-        'minor_code',
-    ]
-struct_anon_67._fields_ = [
-    ('type', c_int),
-    ('display', POINTER(Display)),
-    ('resourceid', XID),
-    ('serial', c_ulong),
-    ('error_code', c_ubyte),
-    ('request_code', c_ubyte),
-    ('minor_code', c_ubyte),
-]
 
-XErrorEvent = struct_anon_67 	# /usr/include/X11/Xlib.h:943
-class struct_anon_68(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'window',
-    ]
-struct_anon_68._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('window', Window),
-]
+class XMappingEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'window',
+                 'request', 'first_keycode', 'count']
+XMappingEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('window', Window), ('request', c_int),
+    ('first_keycode', c_int), ('count', c_int)]
 
-XAnyEvent = struct_anon_68 	# /usr/include/X11/Xlib.h:951
-class struct_anon_69(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'extension',
-        'evtype',
-    ]
-struct_anon_69._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('extension', c_int),
-    ('evtype', c_int),
-]
 
-XGenericEvent = struct_anon_69 	# /usr/include/X11/Xlib.h:967
-class struct_anon_70(Structure):
-    __slots__ = [
-        'type',
-        'serial',
-        'send_event',
-        'display',
-        'extension',
-        'evtype',
-        'cookie',
-        'data',
-    ]
-struct_anon_70._fields_ = [
-    ('type', c_int),
-    ('serial', c_ulong),
-    ('send_event', c_int),
-    ('display', POINTER(Display)),
-    ('extension', c_int),
-    ('evtype', c_int),
-    ('cookie', c_uint),
-    ('data', POINTER(None)),
-]
+class XErrorEvent(Structure):
+    __slots__ = ['type', 'display', 'resourceid', 'serial', 'error_code',
+                 'request_code', 'minor_code']
+XErrorEvent._fields_ = [
+    ('type', c_int), ('display', POINTER(Display)), ('resourceid', XID),
+    ('serial', c_ulong), ('error_code', c_ubyte), ('request_code', c_ubyte),
+    ('minor_code', c_ubyte)]
 
-XGenericEventCookie = struct_anon_70 	# /usr/include/X11/Xlib.h:978
+
+class XAnyEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'window']
+XAnyEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('window', Window)]
+
+
+class XGenericEvent(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'extension',
+                 'evtype']
+XGenericEvent._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('extension', c_int), ('evtype', c_int)]
+
+
+class XGenericEventCookie(Structure):
+    __slots__ = ['type', 'serial', 'send_event', 'display', 'extension',
+                 'evtype', 'cookie', 'data']
+XGenericEventCookie._fields_ = [
+    ('type', c_int), ('serial', c_ulong), ('send_event', c_int),
+    ('display', POINTER(Display)), ('extension', c_int), ('evtype', c_int),
+    ('cookie', c_uint), ('data', POINTER(None))]
 
 
 class XEvent(Union):
     __slots__ = [
-        'type',
-        'xany',
-        'xkey',
-        'xbutton',
-        'xmotion',
-        'xcrossing',
-        'xfocus',
-        'xexpose',
-        'xgraphicsexpose',
-        'xnoexpose',
-        'xvisibility',
-        'xcreatewindow',
-        'xdestroywindow',
-        'xunmap',
-        'xmap',
-        'xmaprequest',
-        'xreparent',
-        'xconfigure',
-        'xgravity',
-        'xresizerequest',
-        'xconfigurerequest',
-        'xcirculate',
-        'xcirculaterequest',
-        'xproperty',
-        'xselectionclear',
-        'xselectionrequest',
-        'xselection',
-        'xcolormap',
-        'xclient',
-        'xmapping',
-        'xerror',
-        'xkeymap',
-        'xgeneric',
-        'xcookie',
-        'pad',
-    ]
+        'type', 'xany', 'xkey', 'xbutton', 'xmotion', 'xcrossing', 'xfocus',
+        'xexpose', 'xgraphicsexpose', 'xnoexpose', 'xvisibility',
+        'xcreatewindow', 'xdestroywindow', 'xunmap', 'xmap', 'xmaprequest',
+        'xreparent', 'xconfigure', 'xgravity', 'xresizerequest',
+        'xconfigurerequest', 'xcirculate', 'xcirculaterequest', 'xproperty',
+        'xselectionclear', 'xselectionrequest', 'xselection', 'xcolormap',
+        'xclient', 'xmapping', 'xerror', 'xkeymap', 'xgeneric', 'xcookie',
+        'pad']
 XEvent._fields_ = [
-    ('type', c_int),
-    ('xany', XAnyEvent),
-    ('xkey', XKeyEvent),
-    ('xbutton', XButtonEvent),
-    ('xmotion', XMotionEvent),
-    ('xcrossing', XCrossingEvent),
-    ('xfocus', XFocusChangeEvent),
-    ('xexpose', XExposeEvent),
-    ('xgraphicsexpose', XGraphicsExposeEvent),
-    ('xnoexpose', XNoExposeEvent),
-    ('xvisibility', XVisibilityEvent),
+    ('type', c_int), ('xany', XAnyEvent), ('xkey', XKeyEvent),
+    ('xbutton', XButtonEvent), ('xmotion', XMotionEvent),
+    ('xcrossing', XCrossingEvent), ('xfocus', XFocusChangeEvent),
+    ('xexpose', XExposeEvent), ('xgraphicsexpose', XGraphicsExposeEvent),
+    ('xnoexpose', XNoExposeEvent), ('xvisibility', XVisibilityEvent),
     ('xcreatewindow', XCreateWindowEvent),
-    ('xdestroywindow', XDestroyWindowEvent),
-    ('xunmap', XUnmapEvent),
-    ('xmap', XMapEvent),
-    ('xmaprequest', XMapRequestEvent),
-    ('xreparent', XReparentEvent),
-    ('xconfigure', XConfigureEvent),
-    ('xgravity', XGravityEvent),
-    ('xresizerequest', XResizeRequestEvent),
+    ('xdestroywindow', XDestroyWindowEvent), ('xunmap', XUnmapEvent),
+    ('xmap', XMapEvent), ('xmaprequest', XMapRequestEvent),
+    ('xreparent', XReparentEvent), ('xconfigure', XConfigureEvent),
+    ('xgravity', XGravityEvent), ('xresizerequest', XResizeRequestEvent),
     ('xconfigurerequest', XConfigureRequestEvent),
-    ('xcirculate', XCirculateEvent),
-    ('xcirculaterequest', XCirculateRequestEvent),
-    ('xproperty', XPropertyEvent),
-    ('xselectionclear', XSelectionClearEvent),
+    ('xcirculate', XCirculateEvent), ('xcirculaterequest', XCirculateRequestEvent),
+    ('xproperty', XPropertyEvent), ('xselectionclear', XSelectionClearEvent),
     ('xselectionrequest', XSelectionRequestEvent),
-    ('xselection', XSelectionEvent),
-    ('xcolormap', XColormapEvent),
-    ('xclient', XClientMessageEvent),
-    ('xmapping', XMappingEvent),
-    ('xerror', XErrorEvent),
-    ('xkeymap', XKeymapEvent),
-    ('xgeneric', XGenericEvent),
-    ('xcookie', XGenericEventCookie),
-    ('pad', c_long * 24),
-]
+    ('xselection', XSelectionEvent), ('xcolormap', XColormapEvent),
+    ('xclient', XClientMessageEvent), ('xmapping', XMappingEvent),
+    ('xerror', XErrorEvent), ('xkeymap', XKeymapEvent),
+    ('xgeneric', XGenericEvent), ('xcookie', XGenericEventCookie),
+    ('pad', c_long * 24)]
 
 ##############################################################################
 # FUNCTIONS
