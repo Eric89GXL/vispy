@@ -11,17 +11,12 @@ from functools import partial
 import struct
 
 from ctypes import (windll, Structure, POINTER, byref, WINFUNCTYPE, cast,
-                    c_uint, c_float, c_int, c_ulong, c_uint64, c_short,
-                    c_void_p, c_uint32, c_wchar, c_wchar_p, c_char_p)
+                    CFUNCTYPE, c_uint, c_float, c_int, c_ulong, c_uint64,
+                    c_short, c_void_p, c_uint32, c_wchar, c_wchar_p, c_char_p)
 from ctypes.wintypes import (LONG, BYTE, HFONT, HGDIOBJ, BOOL, UINT, INT,
                              DWORD, LPARAM, WPARAM, HMONITOR, HINSTANCE,
                              HICON, HBRUSH, HANDLE, HWND, WORD, HMODULE,
                              ATOM, LPVOID, HMENU, LPPOINT, MSG)
-
-try:
-    import _winreg as winreg
-except ImportError:
-    import winreg  # noqa, analysis:ignore
 
 _64_bit = (8 * struct.calcsize("P")) == 64
 
@@ -66,7 +61,6 @@ CCHFORMNAME = 32
 
 HORZSIZE = 4
 VERTSIZE = 6
-
 HORZRES = 8
 VERTRES = 10
 
@@ -153,6 +147,41 @@ SIZE_RESTORED = 0
 SIZE_MINIMIZED = 1
 
 PM_REMOVE = 1
+
+# http://www.opengl.org/registry/api/wglext.h
+WGL_DOUBLE_BUFFER_ARB = 8209
+WGL_STEREO_ARB = 8210
+WGL_COLOR_BITS_ARB = 8212
+WGL_AUX_BUFFERS_ARB = 8228
+WGL_SAMPLE_BUFFERS_ARB = 8257
+WGL_SAMPLES_ARB = 8258
+WGL_RED_BITS_ARB = 8213
+WGL_GREEN_BITS_ARB = 8215
+WGL_BLUE_BITS_ARB = 8217
+WGL_ALPHA_BITS_ARB = 8219
+WGL_DEPTH_BITS_ARB = 8226
+WGL_STENCIL_BITS_ARB = 8227
+WGL_ACCUM_RED_BITS_ARB = 8222
+WGL_ACCUM_GREEN_BITS_ARB = 8223
+WGL_ACCUM_BLUE_BITS_ARB = 8224
+WGL_ACCUM_ALPHA_BITS_ARB = 8225
+
+WGL_CONTEXT_MAJOR_VERSION_ARB = 8337
+WGL_CONTEXT_MINOR_VERSION_ARB = 8338
+WGL_CONTEXT_FLAGS_ARB = 8340
+WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB = 2
+
+WGL_SWAP_MAIN_PLANE = 1
+HGLRC = HANDLE
+
+PFD_TYPE_RGBA = 0
+PFD_DOUBLEBUFFER = 0x00000001
+PFD_STEREO = 0x00000002
+PFD_DRAW_TO_WINDOW = 0x00000004
+PFD_SUPPORT_OPENGL = 0x00000020
+PFD_DEPTH_DONTCARE = 0x20000000
+PFD_DOUBLEBUFFER_DONTCARE = 0x40000000
+PFD_STEREO_DONTCARE = 0x80000000
 
 
 # gdi32
@@ -373,6 +402,27 @@ user32.TranslateMessage.restype = BOOL
 user32.TranslateMessage.argtypes = [LPMSG]
 user32.UnregisterClassW.restype = BOOL
 user32.UnregisterClassW.argtypes = [c_wchar_p, HINSTANCE]
+
+wgl = windll.opengl32
+wgl.wglCreateContext.restype = HGLRC
+wgl.wglCreateContext.argtypes = [HDC]
+wgl.wglDeleteContext.restype = BOOL
+wgl.wglDeleteContext.argtypes = [HGLRC]
+wgl.wglMakeCurrent.restype = BOOL
+wgl.wglMakeCurrent.argtypes = [HDC, HGLRC]
+wgl.wglGetProcAddress.restype = CFUNCTYPE(POINTER(c_int))
+wgl.wglGetProcAddress.argtypes = [c_char_p]
+wgl.wglShareLists.restype = BOOL
+wgl.wglShareLists.argtypes = [HGLRC, HGLRC]
+wgl.wglSwapLayerBuffers.restype = BOOL
+wgl.wglSwapLayerBuffers.argtypes = [HDC, UINT]
+
+
+def wglSwapIntervalEXT(interval):
+    """Wrapper ensuring it actually exists (only after context exists)"""
+    wgl.wglSwapIntervalEXT.restype = BOOL
+    wgl.wglSwapIntervalEXT.argtypes = [c_int]
+    assert wgl.wglSwapIntervalEXT(int(interval))
 
 
 # gdiplus

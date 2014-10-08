@@ -562,21 +562,16 @@ class CanvasBackend(BaseCanvasBackend):
         x, y = ev.xmotion.x, ev.xmotion.y
         m = _translate_modifiers(ev.xbutton.state)
         button = ev.xbutton.button  # already 1, 2, 3 as we need
-        if ev.type == xlib.ButtonPress:
-            if ev.xbutton.button in (4, 5):
-                dy = 1. if ev.xbutton.button == 4 else -1.
-                self._vispy_canvas.events.mouse_wheel(pos=(x, y),
-                                                      delta=(0, dy),
-                                                      modifiers=m)
-            elif ev.xbutton.button < 4:
-                self._vispy_canvas.events.mouse_press(pos=(x, y),
-                                                      button=button,
-                                                      modifiers=m)
-        else:
-            if ev.xbutton.button < 4:
-                self._vispy_canvas.events.mouse_release(pos=(x, y),
-                                                        button=button,
-                                                        modifiers=m)
+        if ev.xbutton.button < 4:
+            if ev.type == xlib.ButtonPress:
+                fun = self._vispy_canvas.events.mouse_press
+            else:
+                fun = self._vispy_canvas.events.mouse_release
+            fun(pos=(x, y), button=button, modifiers=m)
+        elif ev.xbutton.button in (4, 5) and ev.type == xlib.ButtonPress:
+            dy = 1. if ev.xbutton.button == 4 else -1.
+            self._vispy_canvas.events.mouse_wheel(pos=(x, y), delta=(0, dy),
+                                                  modifiers=m)
 
     def _event_configure(self, ev):
         if self._fullscreen:

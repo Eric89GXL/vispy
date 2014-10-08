@@ -38,13 +38,11 @@
 # ----------------------------------------------------------------------------
 
 
-from ctypes import (byref, c_wchar_p, c_int16, sizeof,
-                    c_int, windll, POINTER, CFUNCTYPE, c_char_p, c_short)
-from ctypes.wintypes import HANDLE, UINT, BOOL
+from ctypes import byref, c_wchar_p, c_int16, sizeof, c_short
 
 from ...base import BaseCanvasBackend
-from ....ext.gdi32plus import (gdi32, kernel32, user32,
-                               RECT, POINT, HDC, WNDCLASS, WNDPROC,
+from ....ext.gdi32plus import (gdi32, kernel32, user32, wgl,
+                               RECT, POINT, WNDCLASS, WNDPROC,
                                MONITORINFOEX, MAKEINTRESOURCE, DEVMODE,
                                PIXELFORMATDESCRIPTOR, MONITORENUMPROC)
 from ....ext import gdi32plus as g32
@@ -98,17 +96,8 @@ def _get_modifiers(key_lParam=0):
         modifiers.append(keys.ALT)
     return modifiers
 
+
 # GL Context #################################################################
-
-PFD_TYPE_RGBA = 0
-PFD_DOUBLEBUFFER = 0x00000001
-PFD_STEREO = 0x00000002
-PFD_DRAW_TO_WINDOW = 0x00000004
-PFD_SUPPORT_OPENGL = 0x00000020
-PFD_DEPTH_DONTCARE = 0x20000000
-PFD_DOUBLEBUFFER_DONTCARE = 0x40000000
-PFD_STEREO_DONTCARE = 0x80000000
-
 
 def _set_pfd(hdc, double_buffer=True, stereo=False, depth_size=None,
              buffer_size=None, stencil_size=None,
@@ -119,16 +108,16 @@ def _set_pfd(hdc, double_buffer=True, stereo=False, depth_size=None,
     pfd = PIXELFORMATDESCRIPTOR()
     pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR)
     pfd.nVersion = 1
-    pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL
+    pfd.dwFlags = g32.PFD_DRAW_TO_WINDOW | g32.PFD_SUPPORT_OPENGL
     if double_buffer:
-        pfd.dwFlags |= PFD_DOUBLEBUFFER
+        pfd.dwFlags |= g32.PFD_DOUBLEBUFFER
     else:
-        pfd.dwFlags |= PFD_DOUBLEBUFFER_DONTCARE
-    pfd.dwFlags |= PFD_STEREO if stereo else PFD_STEREO_DONTCARE
+        pfd.dwFlags |= g32.PFD_DOUBLEBUFFER_DONTCARE
+    pfd.dwFlags |= g32.PFD_STEREO if stereo else g32.PFD_STEREO_DONTCARE
 
     if not depth_size:
-        pfd.dwFlags |= PFD_DEPTH_DONTCARE
-    pfd.iPixelType = PFD_TYPE_RGBA
+        pfd.dwFlags |= g32.PFD_DEPTH_DONTCARE
+    pfd.iPixelType = g32.PFD_TYPE_RGBA
     pfd.cColorBits = buffer_size or 0
     pfd.cRedBits = red_size or 0
     pfd.cGreenBits = green_size or 0
@@ -146,54 +135,6 @@ def _set_pfd(hdc, double_buffer=True, stereo=False, depth_size=None,
         raise RuntimeError('could not get correct pixel format')
     gdi32.SetPixelFormat(hdc, pf, pfd)
     # XXX Add samples
-
-
-# http://www.opengl.org/registry/api/wglext.h
-WGL_DOUBLE_BUFFER_ARB = 8209
-WGL_STEREO_ARB = 8210
-WGL_COLOR_BITS_ARB = 8212
-WGL_AUX_BUFFERS_ARB = 8228
-WGL_SAMPLE_BUFFERS_ARB = 8257
-WGL_SAMPLES_ARB = 8258
-WGL_RED_BITS_ARB = 8213
-WGL_GREEN_BITS_ARB = 8215
-WGL_BLUE_BITS_ARB = 8217
-WGL_ALPHA_BITS_ARB = 8219
-WGL_DEPTH_BITS_ARB = 8226
-WGL_STENCIL_BITS_ARB = 8227
-WGL_ACCUM_RED_BITS_ARB = 8222
-WGL_ACCUM_GREEN_BITS_ARB = 8223
-WGL_ACCUM_BLUE_BITS_ARB = 8224
-WGL_ACCUM_ALPHA_BITS_ARB = 8225
-
-WGL_CONTEXT_MAJOR_VERSION_ARB = 8337
-WGL_CONTEXT_MINOR_VERSION_ARB = 8338
-WGL_CONTEXT_FLAGS_ARB = 8340
-WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB = 2
-
-WGL_SWAP_MAIN_PLANE = 1
-
-wgl = windll.opengl32
-HGLRC = HANDLE
-wgl.wglCreateContext.restype = HGLRC
-wgl.wglCreateContext.argtypes = [HDC]
-wgl.wglDeleteContext.restype = BOOL
-wgl.wglDeleteContext.argtypes = [HGLRC]
-wgl.wglMakeCurrent.restype = BOOL
-wgl.wglMakeCurrent.argtypes = [HDC, HGLRC]
-wgl.wglGetProcAddress.restype = CFUNCTYPE(POINTER(c_int))
-wgl.wglGetProcAddress.argtypes = [c_char_p]
-wgl.wglShareLists.restype = BOOL
-wgl.wglShareLists.argtypes = [HGLRC, HGLRC]
-wgl.wglSwapLayerBuffers.restype = BOOL
-wgl.wglSwapLayerBuffers.argtypes = [HDC, UINT]
-
-
-def wglSwapIntervalEXT(interval):
-    """Wrapper ensuring it actually exists (only after context exists)"""
-    wgl.wglSwapIntervalEXT.restype = BOOL
-    wgl.wglSwapIntervalEXT.argtypes = [c_int]
-    assert wgl.wglSwapIntervalEXT(int(interval))
 
 
 class _Win32Context(object):
@@ -220,14 +161,14 @@ class _Win32Context(object):
 
     def swap_buffers(self):
         if self._context is not None:
-            wgl.wglSwapLayerBuffers(self._hdc, WGL_SWAP_MAIN_PLANE)
+            wgl.wglSwapLayerBuffers(self._hdc, g32.WGL_SWAP_MAIN_PLANE)
 
 
 # Window #####################################################################
 
 _VP_NATIVE_ALL_WINDOWS = []
 
-button_map = {
+BUTTONMAP = {
     g32.WM_LBUTTONDOWN: 1,
     g32.WM_LBUTTONUP: 1,
     g32.WM_MBUTTONDOWN: 2,
@@ -235,6 +176,34 @@ button_map = {
     g32.WM_RBUTTONDOWN: 3,
     g32.WM_RBUTTONUP: 3,
 }
+
+KEYMAP = {
+    8: keys.BACKSPACE, 9: keys.TAB, 13: keys.ENTER, 27: keys.ESCAPE,
+    32: keys.SPACE,
+
+    36: keys.HOME, 35: keys.END, 33: keys.PAGEUP, 34: keys.PAGEDOWN,
+    45: keys.INSERT, 46: keys.DELETE,
+
+    37: keys.LEFT, 38: keys.UP, 39: keys.RIGHT, 40: keys.DOWN,
+
+    96: keys.Key('0'), 97: keys.Key('1'), 98: keys.Key('2'), 99: keys.Key('3'),
+    100: keys.Key('4'), 101: keys.Key('5'), 102: keys.Key('6'),
+    103: keys.Key('7'), 104: keys.Key('8'), 105: keys.Key('9'),
+
+    112: keys.F1, 113: keys.F2, 114: keys.F3, 115: keys.F4, 116: keys.F5,
+    117: keys.F6, 118: keys.F7, 119: keys.F8, 120: keys.F9, 121: keys.F10,
+    122: keys.F11, 123: keys.F12,
+
+    91: keys.META, 92: keys.META,
+    16: keys.SHIFT, 160: keys.SHIFT, 161: keys.SHIFT,
+    17: keys.CTRL, 162: keys.CTRL, 163: keys.CTRL,
+    18: keys.ALT, 164: keys.ALT, 165: keys.ALT,
+}
+
+
+CHMAP = {}
+for x in '!"#$%&\'()*+,-./:;<=>?@[\\]^_``{|}~':
+    CHMAP[ord(x)] = x
 
 
 class CanvasBackend(BaseCanvasBackend):
@@ -406,14 +375,16 @@ class CanvasBackend(BaseCanvasBackend):
                 fun = self._vispy_canvas.events.key_release
             else:
                 fun = self._vispy_canvas.events.key_press
-            sym = keymap.get(wParam, None)
-            if symbol is None:
+
+            if 48 <= wParam <= 57 or 65 <= wParam <= 90:  # letter or num
+                key = keys.Key(chr(wParam))
+            elif wParam in KEYMAP:
+                key = KEYMAP[wParam]
+            else:  # unknown
                 ch = user32.MapVirtualKeyW(wParam, g32.MAPVK_VK_TO_CHAR)
-                sym = chmap.get(ch)
-                if sym is None:
-                    sym = key.user_key(wParam)
-            if not repeat:
-                fun(sym, '', modifiers=_get_modifiers(lParam))
+                key = CHMAP.get(ch)
+            if not repeat and key is not None:
+                fun(key, '', modifiers=_get_modifiers(lParam))
         elif msg == g32.WM_MOUSEMOVE:
             x, y = _get_location(lParam)
             m = _get_modifiers()
@@ -428,7 +399,7 @@ class CanvasBackend(BaseCanvasBackend):
             else:
                 fun = self._vispy_canvas.events.mouse_release
                 user32.ReleaseCapture()
-            button = button_map[msg]
+            button = BUTTONMAP[msg]
             x, y = _get_location(lParam)
             fun(pos=(x, y), button=button, modifiers=_get_modifiers())
             self._mouse_pos = (x, y)
@@ -454,15 +425,9 @@ class CanvasBackend(BaseCanvasBackend):
             self._vispy_set_current()
             self._vispy_canvas.events.resize(size=(self._width, self._height))
         elif msg == g32.WM_ERASEBKGND:
-            # Prevent flicker during resize; but erase bkgnd if we're fullscreen.
+            # Prevent flicker during resize; but erase bkgnd if fullscreen.
             if not self._fullscreen:
                 return 1
-        #elif msg == g32.WM_SYSCOMMAND:
-        #    return 0
-        #elif msg == g32.WM_EXITSIZEMOVE:
-        #    return 0
-        #elif msg in (g32.WM_SETFOCUS, g32.WM_KILLFOCUS):
-        #    return 0
         elif msg == g32.WM_GETMINMAXINFO:
             info = g32.MINMAXINFO.from_address(lParam)
             if not self._resizable:

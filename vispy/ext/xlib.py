@@ -704,6 +704,10 @@ XSetTextProperty.restype = None
 XSetTextProperty.argtypes = [POINTER(Display), Window, POINTER(XTextProperty),
                              Atom]
 
+XSetWMNormalHints = _lib.XSetWMNormalHints
+XSetWMNormalHints.restype = None
+XSetWMNormalHints.argtypes = [POINTER(Display), Window, POINTER(XSizeHints)]
+
 XSetWMProtocols = _lib.XSetWMProtocols
 XSetWMProtocols.restype = c_int
 XSetWMProtocols.argtypes = [POINTER(Display), Window, POINTER(Atom), c_int]
