@@ -323,14 +323,14 @@ class CanvasBackend(BaseCanvasBackend):
         self._vispy_canvas.events.initialize()
         if show:
             self._vispy_set_visible(True)
-        self._event_handlers = {}
-        self._event_handlers[xlib.KeyPress] = self._event_key
-        self._event_handlers[xlib.KeyRelease] = self._event_key
-        self._event_handlers[xlib.MotionNotify] = self._event_motion
-        self._event_handlers[xlib.ClientMessage] = self._event_clientmessage
-        self._event_handlers[xlib.ButtonPress] = self._event_button
-        self._event_handlers[xlib.ButtonRelease] = self._event_button
-        self._event_handlers[xlib.ConfigureNotify] = self._event_configure
+        self._event_handlers = {
+            xlib.KeyPress: self._event_key, xlib.KeyRelease: self._event_key,
+            xlib.MotionNotify: self._event_motion,
+            xlib.ClientMessage: self._event_clientmessage,
+            xlib.ButtonPress: self._event_button,
+            xlib.ButtonRelease: self._event_button,
+            xlib.ConfigureNotify: self._event_configure,
+        }
 
     def _map(self):
         if self._mapped:

@@ -16,7 +16,7 @@ from ctypes import (windll, Structure, POINTER, byref, WINFUNCTYPE, cast,
 from ctypes.wintypes import (LONG, BYTE, HFONT, HGDIOBJ, BOOL, UINT, INT,
                              DWORD, LPARAM, WPARAM, HMONITOR, HINSTANCE,
                              HICON, HBRUSH, HANDLE, HWND, WORD, HMODULE,
-                             ATOM, LPVOID, HMENU, LPPOINT)
+                             ATOM, LPVOID, HMENU, LPPOINT, MSG)
 
 try:
     import _winreg as winreg
@@ -70,6 +70,90 @@ VERTSIZE = 6
 HORZRES = 8
 VERTRES = 10
 
+WM_KEYDOWN = 256
+WM_KEYUP = 257
+WM_CHAR = 258
+WM_SYSKEYDOWN = 260
+WM_SYSKEYUP = 261
+WM_MOUSEMOVE = 512
+WM_LBUTTONDOWN = 513
+WM_LBUTTONUP = 514
+WM_RBUTTONDOWN = 516
+WM_RBUTTONUP = 517
+WM_MBUTTONDOWN = 519
+WM_MBUTTONUP = 520
+WM_MOUSEWHEEL = 522
+WM_MOUSELEAVE = 675
+WM_PAINT = 15
+WM_CLOSE = 16
+WM_SIZING = 532
+WM_MOVING = 534
+WM_SYSCOMMAND = 274
+WM_MOVE = 3
+WM_SIZE = 5
+WM_EXITSIZEMOVE = 562
+WM_SETFOCUS = 7
+WM_KILLFOCUS = 8
+WM_GETMINMAXINFO = 36
+WM_ERASEBKGND = 20
+
+WS_CHILD = 1073741824
+WS_VISIBLE = 268435456
+WS_POPUP = -2147483648
+WS_OVERLAPPED = 0
+WS_MAXIMIZE = 16777216
+WS_MINIMIZE = 536870912
+WS_CAPTION = 12582912
+WS_SYSMENU = 524288
+WS_THICKFRAME = 262144
+WS_MAXIMIZEBOX = 65536
+WS_MINIMIZEBOX = 131072
+WS_OVERLAPPEDWINDOW = (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+                       | WS_MINIMIZEBOX | WS_MAXIMIZEBOX)
+WS_EX_DLGMODALFRAME = 1
+WS_EX_TOOLWINDOW = 128
+
+WM_CLOSE = 16
+
+VK_SHIFT = 16
+VK_CONTROL = 17
+VK_MENU = 18
+VK_LWIN = 91
+
+WHEEL_DELTA = 120
+
+ENUM_CURRENT_SETTINGS = -1
+
+SW_HIDE = 0
+SW_MAXIMIZE = 3
+SW_MINIMIZE = 6
+WHITE_BRUSH = 0
+BLACK_BRUSH = 4
+
+CS_VREDRAW = 1
+CS_HREDRAW = 2
+
+CW_USEDEFAULT = -2147483648
+
+GWL_STYLE = -16
+GWL_EXSTYLE = -20
+
+HWND_TOP = 0
+HWND_TOPMOST = -1
+HWND_NOTOPMOST = -2
+
+SWP_FRAMECHANGED = 32
+SWP_NOSIZE = 1
+SWP_NOMOVE = 2
+SWP_NOZORDER = 4
+SWP_SHOWWINDOW = 64
+SWP_NOOWNERZORDER = 512
+
+SIZE_RESTORED = 0
+SIZE_MINIMIZED = 1
+
+PM_REMOVE = 1
+
 
 # gdi32
 
@@ -86,6 +170,7 @@ class RECT(Structure):
                 ('right', LONG), ('bottom', LONG)]
 
 LPRECT = POINTER(RECT)
+LPMSG = POINTER(MSG)
 
 
 class PANOSE(Structure):
@@ -141,85 +226,45 @@ class LOGFONT(Structure):
 
 
 class MONITORINFOEX(Structure):
-    _fields_ = [
-        ('cbSize', DWORD),
-        ('rcMonitor', RECT),
-        ('rcWork', RECT),
-        ('dwFlags', DWORD),
-        ('szDevice', WCHAR * CCHDEVICENAME)
-    ]
+    _fields_ = [('cbSize', DWORD), ('rcMonitor', RECT), ('rcWork', RECT),
+                ('dwFlags', DWORD), ('szDevice', WCHAR * CCHDEVICENAME)]
     __slots__ = [f[0] for f in _fields_]
 
 
 class DEVMODE(Structure):
     _fields_ = [
-        ('dmDeviceName', BCHAR * CCHDEVICENAME),
-        ('dmSpecVersion', WORD),
-        ('dmDriverVersion', WORD),
-        ('dmSize', WORD),
-        ('dmDriverExtra', WORD),
+        ('dmDeviceName', BCHAR * CCHDEVICENAME), ('dmSpecVersion', WORD),
+        ('dmDriverVersion', WORD), ('dmSize', WORD), ('dmDriverExtra', WORD),
         ('dmFields', DWORD),
         # Just using largest union member here
-        ('dmOrientation', c_short),
-        ('dmPaperSize', c_short),
-        ('dmPaperLength', c_short),
-        ('dmPaperWidth', c_short),
-        ('dmScale', c_short),
-        ('dmCopies', c_short),
-        ('dmDefaultSource', c_short),
-        ('dmPrintQuality', c_short),
+        ('dmOrientation', c_short), ('dmPaperSize', c_short),
+        ('dmPaperLength', c_short), ('dmPaperWidth', c_short),
+        ('dmScale', c_short), ('dmCopies', c_short),
+        ('dmDefaultSource', c_short), ('dmPrintQuality', c_short),
         # End union
-        ('dmColor', c_short),
-        ('dmDuplex', c_short),
-        ('dmYResolution', c_short),
-        ('dmTTOption', c_short),
-        ('dmCollate', c_short),
-        ('dmFormName', BCHAR * CCHFORMNAME),
-        ('dmLogPixels', WORD),
-        ('dmBitsPerPel', DWORD),
-        ('dmPelsWidth', DWORD),
-        ('dmPelsHeight', DWORD),
-        ('dmDisplayFlags', DWORD),  # union with dmNup
-        ('dmDisplayFrequency', DWORD),
-        ('dmICMMethod', DWORD),
-        ('dmICMIntent', DWORD),
-        ('dmDitherType', DWORD),
-        ('dmReserved1', DWORD),
-        ('dmReserved2', DWORD),
-        ('dmPanningWidth', DWORD),
-        ('dmPanningHeight', DWORD),
-    ]
+        ('dmColor', c_short), ('dmDuplex', c_short),
+        ('dmYResolution', c_short), ('dmTTOption', c_short),
+        ('dmCollate', c_short), ('dmFormName', BCHAR * CCHFORMNAME),
+        ('dmLogPixels', WORD), ('dmBitsPerPel', DWORD), ('dmPelsWidth', DWORD),
+        ('dmPelsHeight', DWORD), ('dmDisplayFlags', DWORD),  # union with dmNup
+        ('dmDisplayFrequency', DWORD), ('dmICMMethod', DWORD),
+        ('dmICMIntent', DWORD), ('dmDitherType', DWORD),
+        ('dmReserved1', DWORD), ('dmReserved2', DWORD),
+        ('dmPanningWidth', DWORD), ('dmPanningHeight', DWORD)]
 
 
 class PIXELFORMATDESCRIPTOR(Structure):
     _fields_ = [
-        ('nSize', WORD),
-        ('nVersion', WORD),
-        ('dwFlags', DWORD),
-        ('iPixelType', BYTE),
-        ('cColorBits', BYTE),
-        ('cRedBits', BYTE),
-        ('cRedShift', BYTE),
-        ('cGreenBits', BYTE),
-        ('cGreenShift', BYTE),
-        ('cBlueBits', BYTE),
-        ('cBlueShift', BYTE),
-        ('cAlphaBits', BYTE),
-        ('cAlphaShift', BYTE),
-        ('cAccumBits', BYTE),
-        ('cAccumRedBits', BYTE),
-        ('cAccumGreenBits', BYTE),
-        ('cAccumBlueBits', BYTE),
-        ('cAccumAlphaBits', BYTE),
-        ('cDepthBits', BYTE),
-        ('cStencilBits', BYTE),
-        ('cAuxBuffers', BYTE),
-        ('iLayerType', BYTE),
-        ('bReserved', BYTE),
-        ('dwLayerMask', DWORD),
-        ('dwVisibleMask', DWORD),
-        ('dwDamageMask', DWORD)
-    ]
+        ('nSize', WORD), ('nVersion', WORD), ('dwFlags', DWORD),
+        ('iPixelType', BYTE), ('cColorBits', BYTE), ('cRedBits', BYTE),
+        ('cRedShift', BYTE), ('cGreenBits', BYTE), ('cGreenShift', BYTE),
+        ('cBlueBits', BYTE), ('cBlueShift', BYTE), ('cAlphaBits', BYTE),
+        ('cAlphaShift', BYTE), ('cAccumBits', BYTE), ('cAccumRedBits', BYTE),
+        ('cAccumGreenBits', BYTE), ('cAccumBlueBits', BYTE),
+        ('cAccumAlphaBits', BYTE), ('cDepthBits', BYTE),
+        ('cStencilBits', BYTE), ('cAuxBuffers', BYTE), ('iLayerType', BYTE),
+        ('bReserved', BYTE), ('dwLayerMask', DWORD), ('dwVisibleMask', DWORD),
+        ('dwDamageMask', DWORD)]
 
 WNDPROC = WINFUNCTYPE(LRESULT, HWND, UINT, WPARAM, LPARAM)
 MONITORENUMPROC = WINFUNCTYPE(BOOL, HMONITOR, HDC, LPRECT, LPARAM)
@@ -227,17 +272,18 @@ MONITORENUMPROC = WINFUNCTYPE(BOOL, HMONITOR, HDC, LPRECT, LPARAM)
 
 class WNDCLASS(Structure):
     _fields_ = [
-        ('style', UINT),
-        ('lpfnWndProc', WNDPROC),
-        ('cbClsExtra', c_int),
-        ('cbWndExtra', c_int),
-        ('hInstance', HINSTANCE),
-        ('hIcon', HICON),
-        ('hCursor', HCURSOR),
-        ('hbrBackground', HBRUSH),
-        ('lpszMenuName', c_char_p),
-        ('lpszClassName', c_wchar_p)
-    ]
+        ('style', UINT), ('lpfnWndProc', WNDPROC), ('cbClsExtra', c_int),
+        ('cbWndExtra', c_int), ('hInstance', HINSTANCE), ('hIcon', HICON),
+        ('hCursor', HCURSOR), ('hbrBackground', HBRUSH),
+        ('lpszMenuName', c_char_p), ('lpszClassName', c_wchar_p)]
+
+
+class MINMAXINFO(Structure):
+    _fields_ = [
+        ('ptReserved', POINT), ('ptMaxSize', POINT), ('ptMaxPosition', POINT),
+        ('ptMinTrackSize', POINT), ('ptMaxTrackSize', POINT)]
+    __slots__ = [f[0] for f in _fields_]
+
 
 FONTENUMPROC = WINFUNCTYPE(INT, POINTER(LOGFONT), POINTER(TEXTMETRIC),
                            DWORD, c_void_p)
@@ -285,6 +331,8 @@ user32.DefWindowProcW.restype = LRESULT
 user32.DefWindowProcW.argtypes = [HWND, UINT, WPARAM, LPARAM]
 user32.DestroyWindow.restype = BOOL
 user32.DestroyWindow.argtypes = [HWND]
+user32.DispatchMessageW.restype = LRESULT
+user32.DispatchMessageW.argtypes = [LPMSG]
 user32.GetClientRect.restype = BOOL
 user32.GetClientRect.argtypes = [HWND, LPRECT]
 user32.GetDC.restype = HDC
@@ -301,11 +349,19 @@ user32.InvalidateRect.restype = BOOL
 user32.InvalidateRect.argtypes = [HWND, LPRECT, BOOL]
 user32.IsWindowVisible.restype = BOOL
 user32.IsWindowVisible.argtypes = [HWND]
+user32.MapVirtualKeyW.restype = UINT
+user32.MapVirtualKeyW.argtypes = [UINT, UINT]
 user32.LoadIconW.restype = HICON
 user32.LoadIconW.argtypes = [HINSTANCE, c_wchar_p]
+user32.PeekMessageW.restype = BOOL
+user32.PeekMessageW.argtypes = [LPMSG, HWND, UINT, UINT, UINT]
+user32.ReleaseCapture.restype = BOOL
+user32.ReleaseCapture.argtypes = []
 user32.RegisterClassW.restype = ATOM
 user32.RegisterClassW.argtypes = [POINTER(WNDCLASS)]
 user32.ReleaseDC.argtypes = [c_void_p, HDC]
+user32.SetCapture.restype = HWND
+user32.SetCapture.argtypes = [HWND]
 user32.SetProcessDPIAware.argtypes = []
 user32.SetWindowPos.restype = BOOL
 user32.SetWindowPos.argtypes = [HWND, HWND, c_int, c_int, c_int, c_int, UINT]
@@ -313,6 +369,8 @@ user32.SetWindowTextW.restype = BOOL
 user32.SetWindowTextW.argtypes = [HWND, c_wchar_p]
 user32.ShowWindow.restype = BOOL
 user32.ShowWindow.argtypes = [HWND, c_int]
+user32.TranslateMessage.restype = BOOL
+user32.TranslateMessage.argtypes = [LPMSG]
 user32.UnregisterClassW.restype = BOOL
 user32.UnregisterClassW.argtypes = [c_wchar_p, HINSTANCE]
 

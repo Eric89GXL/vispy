@@ -39,63 +39,16 @@
 
 
 from ctypes import (byref, c_wchar_p, c_int16, sizeof,
-                    c_int, windll, POINTER, CFUNCTYPE, c_char_p)
+                    c_int, windll, POINTER, CFUNCTYPE, c_char_p, c_short)
 from ctypes.wintypes import HANDLE, UINT, BOOL
+
+from ...base import BaseCanvasBackend
 from ....ext.gdi32plus import (gdi32, kernel32, user32,
                                RECT, POINT, HDC, WNDCLASS, WNDPROC,
                                MONITORINFOEX, MAKEINTRESOURCE, DEVMODE,
                                PIXELFORMATDESCRIPTOR, MONITORENUMPROC)
-from ...base import BaseCanvasBackend
-
-WS_CHILD = 1073741824
-WS_VISIBLE = 268435456
-WS_POPUP = -2147483648
-WS_OVERLAPPED = 0
-WS_MAXIMIZE = 16777216
-WS_MINIMIZE = 536870912
-WS_CAPTION = 12582912
-WS_SYSMENU = 524288
-WS_THICKFRAME = 262144
-WS_MAXIMIZEBOX = 65536
-WS_MINIMIZEBOX = 131072
-WS_OVERLAPPEDWINDOW = (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
-                       | WS_MINIMIZEBOX | WS_MAXIMIZEBOX)
-WS_EX_DLGMODALFRAME = 1
-WS_EX_TOOLWINDOW = 128
-
-WM_CLOSE = 16
-
-ENUM_CURRENT_SETTINGS = -1
-
-SW_HIDE = 0
-SW_MAXIMIZE = 3
-SW_MINIMIZE = 6
-WHITE_BRUSH = 0
-BLACK_BRUSH = 4
-
-CS_VREDRAW = 1
-CS_HREDRAW = 2
-
-CW_USEDEFAULT = -2147483648
-
-GWL_STYLE = -16
-GWL_EXSTYLE = -20
-
-HWND_TOP = 0
-HWND_TOPMOST = -1
-HWND_NOTOPMOST = -2
-
-SWP_FRAMECHANGED = 32
-SWP_NOSIZE = 1
-SWP_NOMOVE = 2
-SWP_NOZORDER = 4
-SWP_SHOWWINDOW = 64
-SWP_NOOWNERZORDER = 512
-
-SIZE_RESTORED = 0
-SIZE_MINIMIZED = 1
-
-PM_REMOVE = 1
+from ....ext import gdi32plus as g32
+from ....util import keys
 
 
 # Screens ####################################################################
@@ -112,7 +65,7 @@ def _get_screens():
         device_name = info.szDevice
         mode = DEVMODE()
         mode.dmSize = sizeof(DEVMODE)
-        user32.EnumDisplaySettingsW(device_name, ENUM_CURRENT_SETTINGS,
+        user32.EnumDisplaySettingsW(device_name, g32.ENUM_CURRENT_SETTINGS,
                                     byref(mode))
         screens.append(dict(monitor=hMonitor, name=device_name,
                             x=r.left, y=r.top,
@@ -129,6 +82,21 @@ def _get_location(lParam):
     """Convert lParam to x, y"""
     return c_int16(lParam & 0xffff).value, c_int16(lParam >> 16).value
 
+
+def _get_modifiers(key_lParam=0):
+    modifiers = []
+    if user32.GetKeyState(g32.VK_SHIFT) & 0xff00:
+        modifiers.append(keys.SHIFT)
+    if user32.GetKeyState(g32.VK_CONTROL) & 0xff00:
+        modifiers.append(keys.CONTROL)
+    if user32.GetKeyState(g32.VK_LWIN) & 0xff00:
+        modifiers.append(keys.META)
+    if key_lParam:
+        if key_lParam & (1 << 29):
+            modifiers.append(keys.ALT)
+    elif user32.GetKeyState(g32.VK_MENU) < 0:
+        modifiers.append(keys.ALT)
+    return modifiers
 
 # GL Context #################################################################
 
@@ -257,63 +225,16 @@ class _Win32Context(object):
 
 # Window #####################################################################
 
-WM_KEYDOWN = 256
-WM_KEYUP = 257
-WM_CHAR = 258
-WM_SYSKEYDOWN = 260
-WM_SYSKEYUP = 261
-WM_MOUSEMOVE = 512
-WM_LBUTTONDOWN = 513
-WM_LBUTTONUP = 514
-WM_RBUTTONDOWN = 516
-WM_RBUTTONUP = 517
-WM_MBUTTONDOWN = 519
-WM_MBUTTONUP = 520
-WM_MOUSEWHEEL = 522
-WM_MOUSELEAVE = 675
-WM_PAINT = 15
-WM_CLOSE = 16
-WM_SIZING = 532
-WM_MOVING = 534
-WM_SYSCOMMAND = 274
-WM_MOVE = 3
-WM_SIZE = 5
-WM_EXITSIZEMOVE = 562
-WM_SETFOCUS = 7
-WM_KILLFOCUS = 8
-WM_GETMINMAXINFO = 36
-WM_ERASEBKGND = 20
-
-_event_key = {
-    WM_KEYDOWN: 'keydown',
-    WM_KEYUP: 'keyup',
-    WM_SYSKEYDOWN: 'syskeydown',
-    WM_SYSKEYUP: 'syskeyup',
-    WM_CHAR: 'char',
-    WM_MOUSEMOVE: 'mousemove',
-    WM_MOUSELEAVE: 'mouseleave',
-    WM_LBUTTONDOWN: 'lbuttondown',
-    WM_LBUTTONUP: 'lbuttonup',
-    WM_MBUTTONDOWN: 'mbuttondown',
-    WM_MBUTTONUP: 'mbuttondown',
-    WM_RBUTTONDOWN: 'rbuttondown',
-    WM_RBUTTONUP: 'rbuttonup',
-    WM_MOUSEWHEEL: 'mousewheel',
-    WM_CLOSE: 'close',
-    WM_PAINT: 'paint',
-    WM_SIZING: 'sizing',
-    WM_SIZE: 'size',
-    WM_SYSCOMMAND: 'syscommand',
-    WM_MOVE: 'move',
-    WM_EXITSIZEMOVE: 'exitsizemove',
-    WM_SETFOCUS: 'setfocus',
-    WM_KILLFOCUS: 'killfocus',
-    WM_GETMINMAXINFO: 'minmax',
-    WM_ERASEBKGND: 'erase bg',
-}
-
-
 _VP_NATIVE_ALL_WINDOWS = []
+
+button_map = {
+    g32.WM_LBUTTONDOWN: 1,
+    g32.WM_LBUTTONUP: 1,
+    g32.WM_MBUTTONDOWN: 2,
+    g32.WM_MBUTTONUP: 2,
+    g32.WM_RBUTTONDOWN: 3,
+    g32.WM_RBUTTONUP: 3,
+}
 
 
 class CanvasBackend(BaseCanvasBackend):
@@ -328,50 +249,40 @@ class CanvasBackend(BaseCanvasBackend):
                 self._screen = screens[0]
             else:
                 self._screen = screens[fs]
-            self._ws = WS_POPUP & ~(WS_THICKFRAME | WS_MAXIMIZEBOX)
+            self._ws = g32.WS_POPUP & ~(g32.WS_THICKFRAME | g32.WS_MAXIMIZEBOX)
         elif fs is False:
             self._screen = screens[0]
-            self._ws = WS_OVERLAPPEDWINDOW
+            self._ws = g32.WS_OVERLAPPEDWINDOW
             if resize:
-                self._ws |= WS_THICKFRAME
+                self._ws |= g32.WS_THICKFRAME
+        self._resizable = resize
 
         if fs is not False:
             self._fullscreen = True
             x, y = self._screen['x'], self._screen['y']
             width, height = self._screen['width'], self._screen['height']
-            hwnd_after = HWND_TOPMOST
+            hwnd_after = g32.HWND_TOPMOST
         else:
             self._fullscreen = False
             width, height = self._client_to_window_size(*size)
-            hwnd_after = HWND_NOTOPMOST
+            hwnd_after = g32.HWND_NOTOPMOST
+        self._width, self._height = width, height
 
         module = kernel32.GetModuleHandleW(None)
-        black = gdi32.GetStockObject(BLACK_BRUSH)
+        black = gdi32.GetStockObject(g32.BLACK_BRUSH)
         self._wc = WNDCLASS()
         self._wc.lpszClassName = u'GenericAppClass%d' % id(self)
         self._wc.lpfnWndProc = WNDPROC(self._wnd_proc)
-        self._wc.style = CS_VREDRAW | CS_HREDRAW
+        self._wc.style = g32.CS_VREDRAW | g32.CS_HREDRAW
         self._wc.hIcon = user32.LoadIconW(module, MAKEINTRESOURCE(1))
         self._wc.hbrBackground = black
         self._wc.lpszMenuName = None
         self._wc.hInstance = self._wc.cbClsExtra = self._wc.cbWndExtra = 0
         user32.RegisterClassW(byref(self._wc))
         self._hwnd = user32.CreateWindowExW(
-            0, self._wc.lpszClassName, title, self._ws, CW_USEDEFAULT,
-            CW_USEDEFAULT, width, height, 0, 0, self._wc.hInstance, 0)
-
-        self._vwc = WNDCLASS()
-        self._vwc.lpszClassName = u'GenericViewClass%d' % id(self)
-        self._vwc.lpfnWndProc = WNDPROC(self._wnd_proc_view)
-        self._vwc.hbrBackground = black
-        self._vwc.lpszMenuName = None
-        self._vwc.style = self._vwc.hInstance = self._vwc.hIcon = 0
-        self._vwc.cbClsExtra = self._vwc.cbWndExtra = 0
-        user32.RegisterClassW(byref(self._vwc))
-        self._view_hwnd = user32.CreateWindowExW(
-            0, self._vwc.lpszClassName, u'', WS_CHILD | WS_VISIBLE,
-            0, 0, 0, 0, self._hwnd, 0, self._vwc.hInstance, 0)
-        self._dc = user32.GetDC(self._view_hwnd)
+            0, self._wc.lpszClassName, title, self._ws, g32.CW_USEDEFAULT,
+            g32.CW_USEDEFAULT, width, height, 0, 0, self._wc.hInstance, 0)
+        self._dc = user32.GetDC(self._hwnd)
         # Deal with context
         if not context.istaken:
             context.take('native', self)
@@ -384,18 +295,18 @@ class CanvasBackend(BaseCanvasBackend):
         self.context.set_current()
 
         # Position and size window
-        flags = SWP_FRAMECHANGED
+        flags = g32.SWP_FRAMECHANGED
         if not self._fullscreen:
             if position is None:
                 position = (0, 0)
-                flags |= SWP_NOMOVE
+                flags |= g32.SWP_NOMOVE
             x, y = self._client_to_window_pos(*position)
         user32.SetWindowPos(self._hwnd, hwnd_after, x, y, width, height, flags)
-        user32.SetWindowPos(self._view_hwnd, 0, x, y, width, height,
-                            SWP_NOZORDER | SWP_NOOWNERZORDER)
         self._vispy_set_visible(show)
         self._closed = False
-        self._needs_draw = False
+        self._needs_draw = True
+        self._vispy_canvas.events.initialize()
+        self._mouse_pos = (0, 0)
         _VP_NATIVE_ALL_WINDOWS.append(self)
 
     def _vispy_set_current(self):
@@ -413,20 +324,23 @@ class CanvasBackend(BaseCanvasBackend):
             raise RuntimeError('Cannot set size of fullscreen window.')
         self._width, self._height = self._client_to_window_size(w, h)
         user32.SetWindowPos(self._hwnd, 0, 0, 0, self._width, self._height,
-                            SWP_NOZORDER | SWP_NOMOVE | SWP_NOOWNERZORDER)
+                            g32.SWP_NOZORDER | g32.SWP_NOMOVE |
+                            g32.SWP_NOOWNERZORDER)
 
     def _vispy_set_position(self, x, y):
         x, y = self._client_to_window_pos(x, y)
         user32.SetWindowPos(self._hwnd, 0, x, y, 0, 0,
-                            SWP_NOZORDER | SWP_NOSIZE | SWP_NOOWNERZORDER)
+                            g32.SWP_NOZORDER | g32.SWP_NOSIZE |
+                            g32.SWP_NOOWNERZORDER)
 
     def _vispy_set_visible(self, visible):
         if visible:
-            insertAfter = HWND_TOPMOST if self._fullscreen else HWND_TOP
-            user32.SetWindowPos(self._hwnd, insertAfter, 0, 0, 0, 0,
-                                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW)
+            ins_after = g32.HWND_TOPMOST if self._fullscreen else g32.HWND_TOP
+            user32.SetWindowPos(self._hwnd, ins_after, 0, 0, 0, 0,
+                                g32.SWP_NOMOVE | g32.SWP_NOSIZE |
+                                g32.SWP_SHOWWINDOW)
         else:
-            user32.ShowWindow(self._hwnd, SW_HIDE)
+            user32.ShowWindow(self._hwnd, g32.SW_HIDE)
 
     def _vispy_set_fullscreen(self, fullscreen):
         raise NotImplementedError()
@@ -445,8 +359,7 @@ class CanvasBackend(BaseCanvasBackend):
         self.context.detach()
         user32.DestroyWindow(self._hwnd)
         user32.UnregisterClassW(self._wc.lpszClassName, 0)
-        user32.UnregisterClassW(self._vwc.lpszClassName, 0)
-        user32.ReleaseDC(self._dc)
+        user32.ReleaseDC(None, self._dc)
         self._hwnd = self._dc = None
         _VP_NATIVE_ALL_WINDOWS[_VP_NATIVE_ALL_WINDOWS.index(self)] = None
 
@@ -456,9 +369,8 @@ class CanvasBackend(BaseCanvasBackend):
         return rect.right - rect.left, rect.bottom - rect.top
 
     def _vispy_get_position(self):
-        rect = RECT()
+        rect, point = RECT(), POINT()
         user32.GetClientRect(self._hwnd, byref(rect))
-        point = POINT()
         point.x, point.y = rect.left, rect.top
         user32.ClientToScreen(self._hwnd, byref(point))
         return point.x, point.y
@@ -467,7 +379,10 @@ class CanvasBackend(BaseCanvasBackend):
         return self._fullscreen
 
     def _poll_events(self):
-        return  # don't need to explicitly poll in Windows
+        msg = g32.MSG()
+        while user32.PeekMessageW(byref(msg), 0, 0, 0, g32.PM_REMOVE):
+            user32.TranslateMessage(byref(msg))
+            user32.DispatchMessageW(byref(msg))
 
     def _client_to_window_size(self, width, height):
         r = RECT()
@@ -482,11 +397,76 @@ class CanvasBackend(BaseCanvasBackend):
         return (r.left, r.top)
 
     def _wnd_proc(self, hwnd, msg, wParam, lParam):
-        print('event %s' % _event_key.get(msg, 'unknown (%s)' % msg))
-        result = user32.DefWindowProcW(hwnd, msg, wParam, lParam)
-        return result
-
-    def _wnd_proc_view(self, hwnd, msg, wParam, lParam):
-        print('view event %s' % _event_key.get(msg, 'unknown (%s)' % msg))
-        result = user32.DefWindowProcW(hwnd, msg, wParam, lParam)
-        return result
+        if msg in (g32.WM_KEYDOWN, g32.WM_KEYUP, g32.WM_SYSKEYDOWN,
+                   g32.WM_SYSKEYUP):
+            repeat = False
+            if lParam & (1 << 30):
+                if msg not in (g32.WM_KEYUP, g32.WM_SYSKEYUP):
+                    repeat = True
+                fun = self._vispy_canvas.events.key_release
+            else:
+                fun = self._vispy_canvas.events.key_press
+            sym = keymap.get(wParam, None)
+            if symbol is None:
+                ch = user32.MapVirtualKeyW(wParam, g32.MAPVK_VK_TO_CHAR)
+                sym = chmap.get(ch)
+                if sym is None:
+                    sym = key.user_key(wParam)
+            if not repeat:
+                fun(sym, '', modifiers=_get_modifiers(lParam))
+        elif msg == g32.WM_MOUSEMOVE:
+            x, y = _get_location(lParam)
+            m = _get_modifiers()
+            self._vispy_canvas.events.mouse_move(pos=(x, y), modifiers=m)
+        elif msg in (g32.WM_LBUTTONUP, g32.WM_LBUTTONDOWN,
+                     g32.WM_MBUTTONUP, g32.WM_MBUTTONDOWN,
+                     g32.WM_RBUTTONUP, g32.WM_RBUTTONDOWN):
+            if msg in (g32.WM_LBUTTONDOWN, g32.WM_MBUTTONDOWN,
+                       g32.WM_RBUTTONDOWN):
+                fun = self._vispy_canvas.events.mouse_press
+                user32.SetCapture(self._hwnd)
+            else:
+                fun = self._vispy_canvas.events.mouse_release
+                user32.ReleaseCapture()
+            button = button_map[msg]
+            x, y = _get_location(lParam)
+            fun(pos=(x, y), button=button, modifiers=_get_modifiers())
+            self._mouse_pos = (x, y)
+        elif msg == g32.WM_MOUSEWHEEL:
+            delta = (0, c_short(wParam >> 16).value / float(g32.WHEEL_DELTA))
+            self._vispy_canvas.events.mouse_wheel(pos=self._mouse_pos,
+                                                  delta=delta,
+                                                  modifiers=_get_modifiers())
+        elif msg == g32.WM_CLOSE:
+            self._vispy_canvas.close()
+            return 0
+        elif msg == g32.WM_PAINT:
+            self._vispy_canvas.events.draw(region=None)
+        elif msg == g32.WM_SIZING:
+            return 1
+        elif msg == g32.WM_SIZE:
+            # Ignore window creation size event (appears for fullscreen only)
+            if not self._dc:
+                return user32.DefWindowProcW(hwnd, msg, wParam, lParam)
+            w, h = _get_location(lParam)
+            if not self._fullscreen:
+                self._width, self._height = w, h
+            self._vispy_set_current()
+            self._vispy_canvas.events.resize(size=(self._width, self._height))
+        elif msg == g32.WM_ERASEBKGND:
+            # Prevent flicker during resize; but erase bkgnd if we're fullscreen.
+            if not self._fullscreen:
+                return 1
+        #elif msg == g32.WM_SYSCOMMAND:
+        #    return 0
+        #elif msg == g32.WM_EXITSIZEMOVE:
+        #    return 0
+        #elif msg in (g32.WM_SETFOCUS, g32.WM_KILLFOCUS):
+        #    return 0
+        elif msg == g32.WM_GETMINMAXINFO:
+            info = g32.MINMAXINFO.from_address(lParam)
+            if not self._resizable:
+                lims = self._client_to_window_size(self._width, self._height)
+                info.ptMinTrackSize.x, info.ptMinTrackSize.y = lims
+                info.ptMaxTrackSize.x, info.ptMaxTrackSize.y = lims
+        return user32.DefWindowProcW(hwnd, msg, wParam, lParam)
