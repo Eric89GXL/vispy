@@ -18,6 +18,11 @@ from ctypes.wintypes import (LONG, BYTE, HFONT, HGDIOBJ, BOOL, UINT, INT,
                              HICON, HBRUSH, HANDLE, HWND, WORD, HMODULE,
                              ATOM, LPVOID, HMENU, LPPOINT, MSG)
 
+try:
+    import _winreg as winreg
+except ImportError:
+    import winreg  # noqa, analysis:ignore
+
 _64_bit = (8 * struct.calcsize("P")) == 64
 
 LF_FACESIZE = 32
@@ -113,6 +118,7 @@ VK_SHIFT = 16
 VK_CONTROL = 17
 VK_MENU = 18
 VK_LWIN = 91
+MAPVK_VK_TO_CHAR = 2
 
 WHEEL_DELTA = 120
 

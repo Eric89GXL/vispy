@@ -196,7 +196,7 @@ KEYMAP = {
 
     91: keys.META, 92: keys.META,
     16: keys.SHIFT, 160: keys.SHIFT, 161: keys.SHIFT,
-    17: keys.CTRL, 162: keys.CTRL, 163: keys.CTRL,
+    17: keys.CONTROL, 162: keys.CONTROL, 163: keys.CONTROL,
     18: keys.ALT, 164: keys.ALT, 165: keys.ALT,
 }
 
@@ -383,8 +383,10 @@ class CanvasBackend(BaseCanvasBackend):
             else:  # unknown
                 ch = user32.MapVirtualKeyW(wParam, g32.MAPVK_VK_TO_CHAR)
                 key = CHMAP.get(ch)
+                if key is not None:
+                    key = keys.Key(key)
             if not repeat and key is not None:
-                fun(key, '', modifiers=_get_modifiers(lParam))
+                fun(key=key, text='', modifiers=_get_modifiers(lParam))
         elif msg == g32.WM_MOUSEMOVE:
             x, y = _get_location(lParam)
             m = _get_modifiers()
