@@ -78,6 +78,7 @@ class BaseCamera(Node):
         # We initialize these parameters here, because we want these props
         # available in all cameras. Note that PanZoom does not use _center
         self._fov = 0.0
+        self._mouse_translation_speed = 1.0
         self._center = None
         self._depth_value = 1e6  # bit+depth >= 24, otherwise should do 3e3
 
@@ -107,6 +108,19 @@ class BaseCamera(Node):
         if value <= 0:
             raise ValueError('depth value must be positive')
         self._depth_value = value
+
+    @property
+    def mouse_translation_speed(self):
+        """Scale factor for translations based on mouse movement
+        """
+        return self._mouse_translation_speed
+
+    @mouse_translation_speed.setter
+    def mouse_translation_speed(self, speed):
+        speed = float(speed)
+        if speed < 0:
+            raise ValueError('speed must be positive')
+        self._mouse_translation_speed = speed
 
     def _depth_to_z(self, depth):
         """ Get the z-coord, given the depth value.

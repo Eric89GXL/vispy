@@ -228,7 +228,7 @@ class Base3DRotationCamera(PerspectiveCamera):
                 if self._event_value is None:
                     self._event_value = (self._scale_factor, self._distance)
                 zoomy = (1 + self.zoom_factor) ** d[1]
-                
+
                 self.scale_factor = self._event_value[0] * zoomy
                 # Modify distance if its given
                 if self._distance is not None:

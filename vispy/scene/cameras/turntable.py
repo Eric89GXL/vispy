@@ -147,4 +147,5 @@ class TurntableCamera(Base3DRotationCamera):
         dy = (+ dist[0] * (cro * saz - sro * sel * caz)
               + dist[1] * (sro * saz + cro * sel * caz))
         dz = (- dist[0] * sro * cel + dist[1] * cro * cel)
-        return dx, dy, dz
+        ms = self.mouse_translation_speed
+        return dx * ms, dy * ms, dz * ms

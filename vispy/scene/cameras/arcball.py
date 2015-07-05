@@ -73,7 +73,8 @@ class ArcballCamera(Base3DRotationCamera):
         rot, x, y, z = self._quaternion.get_axis_angle()
         tr = AffineTransform()
         tr.rotate(180 * rot / np.pi, (x, y, z))
-        dx, dz, dy = np.dot(tr.matrix[:3, :3], (dist[0], dist[1], 0.))
+        ms = self.mouse_translation_speed
+        dx, dz, dy = np.dot(tr.matrix[:3, :3], (dist[0]*ms, dist[1]*ms, 0.))
         return dx, dy, dz
 
     def _get_dim_vectors(self):
