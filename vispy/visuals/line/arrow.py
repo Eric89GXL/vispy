@@ -84,7 +84,7 @@ class _ArrowHeadVisual(Visual):
 
     def _prepare_vertex_data(self):
         arrows = self._parent.arrows
-        if arrows is None:
+        if not arrows:
             return np.array([], dtype=self._arrow_vtype)
 
         num_arrows = arrows.shape[0]
